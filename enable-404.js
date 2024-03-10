@@ -1,7 +1,9 @@
 import fetch from 'node-fetch';
 import { Buffer } from 'buffer';
+import dotenv from 'dotenv';
 
-const API_KEY = 'TODO';
+dotenv.config();
+
 const BASE_URL = 'https://spacecat.experiencecloud.live/api/v1';
 const siteUrl = process.argv[2];
 const byOrg = process.argv[3] === 'true';
@@ -13,7 +15,7 @@ async function makeApiCall(method, url, data = null) {
         const response = await fetch(`${BASE_URL}${url}`, {
             method: method,
             headers: {
-                'x-api-key': API_KEY,
+                'x-api-key': process.env.SPACECAT_API_KEY,
                 'Content-Type': 'application/json',
             },
             ...(data ? { body: JSON.stringify(data) } : {}),
