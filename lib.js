@@ -2,7 +2,7 @@ import fetch from 'node-fetch';
 const BASE_URL = 'https://spacecat.experiencecloud.live/api/v1';
 const USER_AGENT = 'basecode/seo-research';
 
-export async function makeApiCall(method, url, data = null) {
+export async function makeSpaceCatApiCall(method, url, data = null) {
   try {
     const response = await fetch(`${BASE_URL}${url}`, {
       method: method,
