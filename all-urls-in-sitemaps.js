@@ -1,57 +1,108 @@
-import axios from 'axios';
-import { promisify } from 'util';
+import zlib from 'zlib';
+import fetch from 'node-fetch';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import path from 'path';
+import { parseStringPromise } from 'xml2js';
+import { makeSpaceCatApiCall} from './lib.js';
 
 dotenv.config();
 
-const sleep = promisify(setTimeout);
-
-const SPACECAT_SITES_API = 'https://spacecat.experiencecloud.live/api/v1/sites';
 const USER_AGENT = 'basecode/seo-research';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const WRITE_INTO_FILE = false;
 
 /*
 Example output:
 ['https://domain1.com', 'https://domain2.com'];
+Test data: ['https://stock.adobe.com', 'https://stock.adobe.com/', 'https://experienceleague.adobe.com'];
 */
 const getSpacecatSitesUrls = async () => {
-  const response = await axios.get(SPACECAT_SITES_API, {
-    headers: {
-      'x-api-key': process.env.SPACECAT_API_KEY,
-      'User-Agent': USER_AGENT
+  return ['https://stock.adobe.com'];
+  const response = await makeSpaceCatApiCall('get', '/sites');
+  return response.map((item) => item.baseURL);
+}
+
+
+async function fetchSitemapUrls(domain) {
+  let sitemapUrl = path.join(domain, 'sitemap.xml'); // Default sitemap location
+  let urls = [];
+
+  function parseRobotsTxt(robotsTxt) {
+    try {
+      const regex = /Sitemap:\s*(https?:\/\/[^\s]+)/;
+      return robotsTxt.match(regex)[1];
+    } catch (error) {
+      return null; // No sitemap URL found in robots.txt
     }
-  });
-  return response.data.map((item) => item.baseURL);
-}
+  }
 
-const getSitemapXml = async (url) => {
-  try {
-    const response = await axios.get(`${url}/sitemap.xml`, {
-      headers: {
-          'User-Agent': USER_AGENT
+  async function parseSitemap(xml) {
+      try {
+          const result = await parseStringPromise(xml);
+          if (result.urlset && result.urlset.url) {
+              for (let urlEntry of result.urlset.url) {
+                  urls.push(urlEntry.loc[0]);
+              }
+          } else if (result.sitemapindex && result.sitemapindex.sitemap) {
+              for (let sitemap of result.sitemapindex.sitemap) {
+                  const response = await fetch(sitemap.loc[0]);
+                  const xmlText = await response.text();
+                  await parseSitemap(xmlText); // Recursively parse nested sitemaps
+              }
+          }
+      } catch (error) {
+          console.error(`Error parsing sitemap for ${domain}: ${error}`);
       }
-    });
-    return response.status === 200 ? response.data : '';
-  } catch (err) {
-    return '';
   }
-}
 
-const findUrlsInSitemap = (xml) => {
-  const regex = /(?<=<loc>)(.+?)(?=<\/loc>)/g;
+  // Check robots.txt for the sitemap URL
   try {
-    return [...xml.match(regex)];
-  } catch (err) {
-    return [];
+      const robotsResponse = await fetch(path.join(domain, 'robots.txt'));
+      if (robotsResponse.ok) {
+          const robotsTxt = await robotsResponse.text();
+          const robotsSitemapUrl = parseRobotsTxt(robotsTxt);
+          if (robotsSitemapUrl) {
+              sitemapUrl = robotsSitemapUrl;
+          }
+      }
+  } catch (error) {
+      console.log(`No robots.txt found for ${domain}, using default sitemap URL.`);
   }
+
+  // Fetch and parse the sitemap
+  try {
+      const response = await fetch(sitemapUrl);
+      // skip if response is html (in both cases: 404-page or 2xx)
+      if (response.ok && !response.headers.get('content-type').includes('text/html')) {
+          const xml = await response.text();
+          await parseSitemap(xml);
+      } else {
+          console.log(`Sitemap not found at ${sitemapUrl}`);
+      }
+  } catch (error) {
+      console.error(`Error fetching sitemap for ${domain}: ${error}`);
+  }
+
+  return urls;
 }
 
-(async function() {
+// Example usage
+(async () => {
   console.time('ExecutionTime');
-  const sitesUrls = await getSpacecatSitesUrls();
-  const sitemapXmls = await Promise.all(sitesUrls.map(url => getSitemapXml(url)));
-  const sitemapUrls = sitemapXmls.map(sitemapXml => findUrlsInSitemap(sitemapXml));
-  const result = sitemapUrls.reduce((accumulator, urls) => Number(accumulator + urls.length), [0]);
-  console.log(result);
+  let countedPages = 0;
+  // Prepare the CSV file
+  const outputFilePath = path.join(__dirname, 'output.csv');
+  // fs.writeFileSync(outputFilePath, 'page\n'); // Write CSV headers
+
+  const siteUrls = await getSpacecatSitesUrls();
+  for (const siteUrl of siteUrls) {
+      const pages = await fetchSitemapUrls(siteUrl);
+      countedPages += pages.length;
+      if (WRITE_INTO_FILE) pages.map(page => fs.appendFileSync(outputFilePath, `"${page}"\n`));
+  }
+  console.log(`Total Pages: ${countedPages}`);
   console.timeEnd('ExecutionTime');
 })();
-
