@@ -12,25 +12,19 @@ dotenv.config();
 const USER_AGENT = 'basecode/seo-research';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const __visitedSitemaps = [];
+
 const WRITE_INTO_FILE = false;
-const EXECUTE_SITE_REPORT_THRESHOLD = 1;
 const OUTPUT_FILE_PATH = path.join(__dirname, 'output.csv');
-const visitedSitemaps = [];
+const EXECUTE_SITE_REPORT = '';
+
+const report = (message) => {
+  if (EXECUTE_SITE_REPORT) console.log(message);
+}
 
 /*
 Example output:
 ['https://domain1.com', 'https://domain2.com'];
-
-Good test data: [
-  'https://stock.adobe.com/', // uses gzip
-  'https://experienceleague.adobe.com', // sitemap referenced in robots.txt and uses sitemap index
-  'https://adobe.com', // Error: Attribute without value & TypeError: Cannot read properties of null (reading 'urlset')
-  'https://astrazeneca.com', // FetchError: request to https://www.astrazeneca.comsitemap.xml/ failed
-  'https://bamboohr.com', // TypeError: Cannot read properties of null (reading 'urlset')
-  'https://bedrocktitle.com', // Error: Unexpected close tag
-  'https://arlo.com', 'Error: Unexpected close tag'
-
-];
 */
 const getSpacecatSitesUrls = async () => {
   const response = await makeSpaceCatApiCall('get', '/sites');
@@ -38,7 +32,7 @@ const getSpacecatSitesUrls = async () => {
 }
 
 
-async function fetchSitemapUrls(siteUrl, isReport) {
+async function fetchSitemapUrls(siteUrl) {
   let sitemapUrl = new URL('sitemap.xml', siteUrl).toString(); // Default sitemap location
   let urls = [];
 
@@ -56,8 +50,8 @@ async function fetchSitemapUrls(siteUrl, isReport) {
     }
   }
 
-  async function parseSitemap(xml) {
-    if (visitedSitemaps.includes(sitemapUrl)) return;
+  async function parseSitemap(xml, source) {
+    if (__visitedSitemaps.includes(sitemapUrl)) return;
     try {
       const result = await parseStringPromise(xml);
       if (result.urlset && result.urlset.url) {
@@ -67,13 +61,15 @@ async function fetchSitemapUrls(siteUrl, isReport) {
       } else if (result.sitemapindex && result.sitemapindex.sitemap) {
         for (let sitemap of result.sitemapindex.sitemap) {
           const sitemapIndexUrl = sitemap.loc[0];
-          if (visitedSitemaps.includes(sitemapIndexUrl)) break;
-          visitedSitemaps.push(sitemapIndexUrl);
-          if (isReport) console.log(`Found Sitemap in Index: ${sitemapIndexUrl}`);
+          if (__visitedSitemaps.includes(sitemapIndexUrl)) break;
+          __visitedSitemaps.push(sitemapIndexUrl);
+          report(`Found Sitemap in Index: ${sitemapIndexUrl}`);
           const response = await fetch(sitemapIndexUrl);
-          if (response.headers.get('content-type').includes('application/x-gzip')) {
+          if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
+            report(`Error in ${sitemapIndexUrl}, Status: ${response.status}, Content-Type: ${response.headers.get('content-type')}, Source: ${source}`);
+          } else if (response.headers.get('content-type').includes('application/x-gzip')) {
             // Handle gzipped sitemap
-            if (isReport) console.log(`..and gzipped: ${sitemapIndexUrl}`);
+            report('..and gzipped');
             const buffer = Buffer.from(await response.arrayBuffer());
             const decompressed = zlib.gunzipSync(buffer).toString();
             await parseSitemap(decompressed);
@@ -85,8 +81,8 @@ async function fetchSitemapUrls(siteUrl, isReport) {
         }
       }
     } catch (error) {
-      visitedSitemaps.push(sitemapUrl);
-      console.error(`Error parsing sitemap for ${sitemapUrl}: ${error}`);
+      __visitedSitemaps.push(sitemapUrl);
+      console.error(`Error in ${sitemapUrl}: ${error}. Source: ${source}`);
     }
   }
 
@@ -99,37 +95,39 @@ async function fetchSitemapUrls(siteUrl, isReport) {
       if (robotsSitemapUrls && robotsSitemapUrls.length > 0) {
         // Process each sitemap found in robots.txt
         for (const robotsSitemapUrl of robotsSitemapUrls) {
-          if (visitedSitemaps.includes(robotsSitemapUrl)) break;
-          visitedSitemaps.push(robotsSitemapUrl);
-          if (isReport) console.log(`Found Sitemap in robots.txt: ${robotsSitemapUrl}`);
+          if (__visitedSitemaps.includes(robotsSitemapUrl)) break;
+          __visitedSitemaps.push(robotsSitemapUrl);
+          report(`Found Sitemap in robots.txt: ${robotsSitemapUrl}`);
           const response = await fetch(robotsSitemapUrl);
-          if (response.ok && !response.headers.get('content-type').includes('text/html')) {
+          if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
+            report(`Sitemap not found at ${sitemapUrl}`);
+          } else {
             if (response.headers.get('content-type').includes('application/x-gzip')) {
               // Handle gzipped sitemap
               const buffer = Buffer.from(await response.arrayBuffer());
               const decompressed = zlib.gunzipSync(buffer).toString();
-              await parseSitemap(decompressed);
+              await parseSitemap(decompressed, robotsSitemapUrl);
             } else {
               // Handle regular sitemap
               const xml = await response.text();
-              await parseSitemap(xml);
+              await parseSitemap(xml, robotsSitemapUrl);
             }
-          } else {
-            console.log(`Sitemap not found at ${sitemapUrl}`);
           }
         }
         return urls; // Return early if sitemap URLs are found in robots.txt
       }
     }
   } catch (error) {
-    console.log(`No robots.txt found for ${siteUrl}, using default sitemap URL.`);
+    report(`No robots.txt found for ${siteUrl}, using default sitemap URL.`);
   }
 
   // Fetch and parse the default sitemap if no sitemap URL is found in robots.txt
   try {
-    visitedSitemaps.push(sitemapUrl);
+    __visitedSitemaps.push(sitemapUrl);
     const response = await fetch(sitemapUrl);
-    if (response.ok && !response.headers.get('content-type').includes('text/html')) {
+    if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
+      report(`Sitemap not found at ${sitemapUrl}`);
+    } else {
       let xml;
       if (response.headers.get('content-type').includes('application/x-gzip')) {
         const buffer = Buffer.from(await response.arrayBuffer());
@@ -137,13 +135,11 @@ async function fetchSitemapUrls(siteUrl, isReport) {
       } else {
         xml = await response.text();
       }
-      await parseSitemap(xml);
-    } else {
-      console.log(`Sitemap not found at ${sitemapUrl}`);
+      await parseSitemap(xml, sitemapUrl);
     }
   } catch (error) {
-    visitedSitemaps.push(sitemapUrl);
-    console.error(`Error fetching sitemap for ${siteUrl}: ${error}`);
+    __visitedSitemaps.push(sitemapUrl);
+    report(`Error fetching default sitemap ${siteUrl}: ${error}`);
   }
 
   return urls;
@@ -154,10 +150,10 @@ async function fetchSitemapUrls(siteUrl, isReport) {
   console.time('ExecutionTime');
   let totalPages = 0;
 
-  const siteUrls = await getSpacecatSitesUrls();
-  const isReport = siteUrls.length <= EXECUTE_SITE_REPORT_THRESHOLD;
+  
+  const siteUrls = EXECUTE_SITE_REPORT ? [EXECUTE_SITE_REPORT] : await getSpacecatSitesUrls();
   for (const siteUrl of siteUrls) {
-      const pages = await fetchSitemapUrls(siteUrl, isReport);
+      const pages = await fetchSitemapUrls(siteUrl);
       totalPages += pages.length;
       if (WRITE_INTO_FILE) pages.map(page => fs.appendFileSync(OUTPUT_FILE_PATH, `"${page}"\n`));
   }
