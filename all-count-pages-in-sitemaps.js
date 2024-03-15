@@ -13,6 +13,7 @@ const USER_AGENT = 'basecode/seo-research';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const WRITE_INTO_FILE = false;
+const OUTPUT_FILE_PATH = path.join(__dirname, 'output.csv');
 
 /*
 Example output:
@@ -137,17 +138,14 @@ async function fetchSitemapUrls(domain) {
 // Example usage
 (async () => {
   console.time('ExecutionTime');
-  let countedPages = 0;
-  // Prepare the CSV file
-  const outputFilePath = path.join(__dirname, 'output.csv');
-  // fs.writeFileSync(outputFilePath, 'page\n'); // Write CSV headers
+  let totalPages = 0;
 
   const siteUrls = await getSpacecatSitesUrls();
   for (const siteUrl of siteUrls) {
       const pages = await fetchSitemapUrls(siteUrl);
-      countedPages += pages.length;
-      if (WRITE_INTO_FILE) pages.map(page => fs.appendFileSync(outputFilePath, `"${page}"\n`));
+      totalPages += pages.length;
+      if (WRITE_INTO_FILE) pages.map(page => fs.appendFileSync(OUTPUT_FILE_PATH, `"${page}"\n`));
   }
-  console.log(`Total Pages: ${countedPages}`);
+  console.log(`Total Pages: ${totalPages}`);
   console.timeEnd('ExecutionTime');
 })();
