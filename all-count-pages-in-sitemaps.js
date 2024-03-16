@@ -9,17 +9,39 @@ import { makeSpaceCatApiCall} from './lib.js';
 
 dotenv.config();
 
-const USER_AGENT = 'basecode/seo-research';
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __USER_AGENT_HEADER = { headers: { 'User-Agent': 'basecode/seo-research-crawler/1.0' } };
 const __visitedSitemaps = [];
 
-const WRITE_INTO_FILE = false;
-const OUTPUT_FILE_PATH = path.join(__dirname, 'output.csv');
-const EXECUTE_SITE_REPORT = '';
+const REPORTS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'reports');
+const EXECUTE_SINGLE_SITE_REPORT = 'https://behindok.com';
 
-const report = (message) => {
-  if (EXECUTE_SITE_REPORT) console.log(message);
+// Ensure the reports directory exists
+if (!fs.existsSync(REPORTS_DIR)) {
+  fs.mkdirSync(REPORTS_DIR);
+}
+
+const sanitizeFilename = (url) => {
+  return url.replace(/[^a-zA-Z0-9]/g, '_');
+};
+
+const reportExists = (site) => {
+  return fs.existsSync(path.join(REPORTS_DIR, `${sanitizeFilename(site)}.txt`));
+}
+
+const reportSite = (site) => {
+  if (EXECUTE_SINGLE_SITE_REPORT) console.log(`Report for ${site}`);
+    fs.writeFileSync(path.join(REPORTS_DIR, `${sanitizeFilename(site)}.txt`), `Report for ${site}\n`);
+    report(site, `Date: ${Date.now()}`);
+}
+
+const report = (site, message) => {
+  if (EXECUTE_SINGLE_SITE_REPORT) console.log(message);
+  fs.appendFileSync(path.join(REPORTS_DIR, `${sanitizeFilename(site)}.txt`), message + "\n");
+}
+
+const reportPages = (site, pages) => {
+  report(site, `Total Pages: ${pages.length}`);
+  pages.forEach(page => fs.appendFileSync(path.join(REPORTS_DIR, `${sanitizeFilename(site)}.txt`), `${page}\n`) );
 }
 
 /*
@@ -63,13 +85,13 @@ async function fetchSitemapUrls(siteUrl) {
           const sitemapIndexUrl = sitemap.loc[0];
           if (__visitedSitemaps.includes(sitemapIndexUrl)) break;
           __visitedSitemaps.push(sitemapIndexUrl);
-          report(`Found Sitemap in Index: ${sitemapIndexUrl}`);
-          const response = await fetch(sitemapIndexUrl);
+          report(siteUrl, `Found Sitemap in Index: ${sitemapIndexUrl}`);
+          const response = await fetch(sitemapIndexUrl, __USER_AGENT_HEADER);
           if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
-            report(`Error in ${sitemapIndexUrl}, Status: ${response.status}, Content-Type: ${response.headers.get('content-type')}, Source: ${source}`);
+            report(siteUrl, `Error in ${sitemapIndexUrl}, Status: ${response.status}, Content-Type: ${response.headers.get('content-type')}, Source: ${source}`);
           } else if (response.headers.get('content-type').includes('application/x-gzip')) {
             // Handle gzipped sitemap
-            report('..and gzipped');
+            report(siteUrl, '..and gzipped');
             const buffer = Buffer.from(await response.arrayBuffer());
             const decompressed = zlib.gunzipSync(buffer).toString();
             await parseSitemap(decompressed);
@@ -88,7 +110,7 @@ async function fetchSitemapUrls(siteUrl) {
 
   // Check robots.txt for the sitemap URL(s)
   try {
-    const robotsResponse = await fetch(new URL('robots.txt', siteUrl).toString());
+    const robotsResponse = await fetch(new URL('robots.txt', siteUrl).toString(), __USER_AGENT_HEADER);
     if (robotsResponse.ok) {
       const robotsTxt = await robotsResponse.text();
       const robotsSitemapUrls = parseRobotsTxt(robotsTxt);
@@ -96,11 +118,10 @@ async function fetchSitemapUrls(siteUrl) {
         // Process each sitemap found in robots.txt
         for (const robotsSitemapUrl of robotsSitemapUrls) {
           if (__visitedSitemaps.includes(robotsSitemapUrl)) break;
-          __visitedSitemaps.push(robotsSitemapUrl);
-          report(`Found Sitemap in robots.txt: ${robotsSitemapUrl}`);
-          const response = await fetch(robotsSitemapUrl);
+          report(siteUrl, `Found Sitemap in robots.txt: ${robotsSitemapUrl}`);
+          const response = await fetch(robotsSitemapUrl, __USER_AGENT_HEADER);
           if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
-            report(`Sitemap not found at ${sitemapUrl}`);
+            report(siteUrl, `Sitemap not found at ${sitemapUrl}`);
           } else {
             if (response.headers.get('content-type').includes('application/x-gzip')) {
               // Handle gzipped sitemap
@@ -118,16 +139,16 @@ async function fetchSitemapUrls(siteUrl) {
       }
     }
   } catch (error) {
-    report(`No robots.txt found for ${siteUrl}, using default sitemap URL.`);
+    report(siteUrl, `No robots.txt found for ${siteUrl}, using default sitemap URL.`);
   }
 
   // Fetch and parse the default sitemap if no sitemap URL is found in robots.txt
   try {
-    __visitedSitemaps.push(sitemapUrl);
-    const response = await fetch(sitemapUrl);
+    const response = await fetch(sitemapUrl, __USER_AGENT_HEADER);
     if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
-      report(`Sitemap not found at ${sitemapUrl}`);
+      report(siteUrl, `Sitemap not found at ${sitemapUrl}`);
     } else {
+      report(siteUrl, `Found Sitemap in default location: ${sitemapUrl}`);
       let xml;
       if (response.headers.get('content-type').includes('application/x-gzip')) {
         const buffer = Buffer.from(await response.arrayBuffer());
@@ -139,7 +160,7 @@ async function fetchSitemapUrls(siteUrl) {
     }
   } catch (error) {
     __visitedSitemaps.push(sitemapUrl);
-    report(`Error fetching default sitemap ${siteUrl}: ${error}`);
+    report(siteUrl, `Error fetching default sitemap ${siteUrl}: ${error}`);
   }
 
   return urls;
@@ -147,16 +168,22 @@ async function fetchSitemapUrls(siteUrl) {
 
 // Example usage
 (async () => {
-  console.time('ExecutionTime');
+  const totalStartTime = process.hrtime();
   let totalPages = 0;
 
-  
-  const siteUrls = EXECUTE_SITE_REPORT ? [EXECUTE_SITE_REPORT] : await getSpacecatSitesUrls();
+  const siteUrls = EXECUTE_SINGLE_SITE_REPORT ? [EXECUTE_SINGLE_SITE_REPORT] : await getSpacecatSitesUrls();
   for (const siteUrl of siteUrls) {
+    if (!reportExists(siteUrl)) {
+      const startTime = process.hrtime();
+      reportSite(siteUrl);
       const pages = await fetchSitemapUrls(siteUrl);
       totalPages += pages.length;
-      if (WRITE_INTO_FILE) pages.map(page => fs.appendFileSync(OUTPUT_FILE_PATH, `"${page}"\n`));
+      reportPages(siteUrl, pages);
+      report(siteUrl, `ExecutionTime ${process.hrtime(startTime)}`);
+    } else {
+      console.log(`Skip: ${siteUrl}`);
+    }
   }
   console.log(`Total Pages: ${totalPages}`);
-  console.timeEnd('ExecutionTime');
+  console.log(`Total time: ${process.hrtime(totalStartTime)}`);
 })();
