@@ -13,11 +13,17 @@ const __USER_AGENT_HEADER = { headers: { 'User-Agent': 'basecode/seo-research-cr
 const __visitedSitemaps = [];
 
 const REPORTS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'reports');
-const EXECUTE_SINGLE_SITE_REPORT = 'https://behindok.com';
+const EXECUTE_SINGLE_SITE_REPORT = '';
 
 // Ensure the reports directory exists
 if (!fs.existsSync(REPORTS_DIR)) {
   fs.mkdirSync(REPORTS_DIR);
+}
+
+const hrtimeToSeconds = (hrtime) => {
+  // hrtime is an array: [seconds, nanoseconds]
+  const totalNanoseconds = hrtime[0] * 1e9 + hrtime[1]; // Convert seconds to nanoseconds and add the nanoseconds
+  return totalNanoseconds / 1e9;
 }
 
 const sanitizeFilename = (url) => {
@@ -50,7 +56,9 @@ Example output:
 */
 const getSpacecatSitesUrls = async () => {
   const response = await makeSpaceCatApiCall('get', '/sites');
-  return response.map((item) => item.baseURL);
+  return response
+    .filter((item) => item.deliveryType === 'aem_edge')
+    .map((item) => item.baseURL);
 }
 
 
@@ -179,11 +187,11 @@ async function fetchSitemapUrls(siteUrl) {
       const pages = await fetchSitemapUrls(siteUrl);
       totalPages += pages.length;
       reportPages(siteUrl, pages);
-      report(siteUrl, `ExecutionTime ${process.hrtime(startTime)}`);
+      report(siteUrl, `ExecutionTime in Seconds ${hrtimeToSeconds(process.hrtime(startTime))}`);
     } else {
       console.log(`Skip: ${siteUrl}`);
     }
   }
   console.log(`Total Pages: ${totalPages}`);
-  console.log(`Total time: ${process.hrtime(totalStartTime)}`);
+  console.log(`Total time in Minutes: ${hrtimeToSeconds(process.hrtime(totalStartTime)) / 60}`);
 })();
