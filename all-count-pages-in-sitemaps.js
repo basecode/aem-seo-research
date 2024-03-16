@@ -183,6 +183,7 @@ async function fetchSitemapUrls(siteUrl) {
   for (const siteUrl of siteUrls) {
     if (!reportExists(siteUrl)) {
       const startTime = process.hrtime();
+      console.log(`Processing: ${siteUrl}`);
       reportSite(siteUrl);
       const pages = await fetchSitemapUrls(siteUrl);
       totalPages += pages.length;
