@@ -1,0 +1,24 @@
+# SEO assessment
+
+## How to
+
+Run all assessments sequentially. Every assessment shall return a CSV that can be copy/pasted into the overall assessment.
+Every assessment requires an URL as first parameter. The URL must be contained in SpaceCat Catalogue.
+
+Example: `node ./assessment/sitemap.js "https://bitdefender.com.au/solutions/"`
+
+## Development guide
+
+1. Go to `/assessment/`
+2. Copy `/assessment/sitemap.js` or use the boilerplate
+   ```
+   import dotenv from 'dotenv';
+   import { createAssessment } from './assessment-lib.js';
+
+   (async () => {
+      const assessment = await createAssessment(userSiteUrl, 'My Assessment');
+      // business logic
+      // assessment.addRow(`message`);
+      // assessment.end();
+   })();
+   ```
