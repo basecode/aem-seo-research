@@ -41,7 +41,6 @@ async function getSiteByBaseUrl(siteUrl) {
 
 async function manageOrganizationAndSite(siteUrl, newSiteConfig) {
     const siteData = await getSiteByBaseUrl(siteUrl);
-    const organizationId = '3cd4f9e2-3f81-4909-ac9f-104008f3aa3c';
     if (siteData) {
         // Site exists, check and merge organization and site config
         const mergedSiteConfig = { ...siteData.config, ...newSiteConfig };
