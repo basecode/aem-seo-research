@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import path from 'path';
+import { json2csv } from 'json-2-csv';
 import { getSiteByBaseUrl } from '../spacecat-lib.js';
 
 export const USER_AGENT = 'basecode/seo-research-crawler/1.0';
@@ -18,7 +19,8 @@ const hrtimeToSeconds = (hrtime) => {
 }
 
 export const createAssessment = async (userSite, userTitle) => {
-  const totalStartTime = process.hrtime();
+  const TOTAL_START_HRTIME = process.hrtime();
+  const csvContent = [];
 
   // Ensure the output directory exists
   if (!fs.existsSync(OUTPUT_DIR)) {
@@ -28,20 +30,24 @@ export const createAssessment = async (userSite, userTitle) => {
   console.log('Check if URL is qualified to be assessed. Needs to be part of spacecat catalogue');
   const SITE = await getSiteByBaseUrl(userSite);
   const SITE_URL = SITE.baseURL;
+  const FILE_PATH = path.join(OUTPUT_DIR, `${sanitizeFilename(userTitle)}-${sanitizeFilename(SITE_URL)}-${Date.now()}.csv`);
 
-  const TITLE = `${userTitle}: Assessment for ${SITE_URL}`;
-  const NOW = Date.now();
-  const FILE_PATH = path.join(OUTPUT_DIR, `${sanitizeFilename(userTitle)}-${sanitizeFilename(SITE_URL)}-${NOW}.csv`);
+  console.log(`${userTitle}: Assessment for ${SITE_URL}`);
 
-  console.log(TITLE);
-  fs.writeFileSync(FILE_PATH, `${TITLE},\nDate: ${NOW}\n`);
+  let rowHeadersAndDefaults;
 
   return {
-    addRow(message) {
-      fs.appendFileSync(FILE_PATH, `${message}\n`);
+    setRowHeadersAndDefaults(arg) {
+      rowHeadersAndDefaults = arg;
+    },
+    addColumn(column) {
+      const merge = {...rowHeadersAndDefaults, ...column};
+      csvContent.push(merge);
     },
     end() {
-      console.log(`Processing time in Minutes: ${hrtimeToSeconds(process.hrtime(totalStartTime)) / 60}`);
+      console.log(`Processing time in Minutes: ${hrtimeToSeconds(process.hrtime(TOTAL_START_HRTIME)) / 60}`);
+      const csv = json2csv(csvContent);
+      fs.writeFileSync(FILE_PATH, csv);
     }
   };
 }

@@ -17,8 +17,14 @@ Example: `node ./assessment/sitemap.js "https://bitdefender.com.au/solutions/"`
 
    (async () => {
       const assessment = await createAssessment(userSiteUrl, 'My Assessment');
+      assessment.setRowHeadersAndDefaults({
+         sitemap: '',
+         source: '',
+         error: '',
+         warning: ''
+      });
       // business logic
-      // assessment.addRow(`message`);
-      // assessment.end();
+      // assessment.addColumn({ sitemap: 'https:mysite/sitemap.xml', source: 'default sitemap.xml'});
+      assessment.end();
    })();
    ```
