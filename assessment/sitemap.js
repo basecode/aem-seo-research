@@ -1,7 +1,7 @@
 import zlib from 'zlib';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
-import { createAssessment, USER_AGENT } from './assessment-lib.js';
+import { createAssessment, getRobotsTxt, USER_AGENT } from './assessment-lib.js';
 import { parseStringPromise } from 'xml2js';
 
 dotenv.config();
@@ -13,20 +13,6 @@ const userSiteUrl = process.argv[2];
 async function fetchSitemapUrls(siteUrl, assessment) {
   let sitemapUrl = new URL('sitemap.xml', siteUrl).toString(); // Default sitemap location
   let urls = [];
-
-  function parseRobotsTxt(robotsTxt) {
-    try {
-      const regex = /Sitemap:\s*(https?:\/\/[^\s]+)/g;
-      let match;
-      let sitemaps = [];
-      while ((match = regex.exec(robotsTxt)) !== null) {
-        sitemaps.push(match[1]);
-      }
-      return sitemaps.length > 0 ? sitemaps : null;
-    } catch (error) {
-      return null; // No sitemap URL found in robots.txt
-    }
-  }
 
   async function parseSitemap(xml, source) {
     if (__visitedSitemaps.includes(sitemapUrl)) return;
@@ -66,12 +52,9 @@ async function fetchSitemapUrls(siteUrl, assessment) {
 
   // Check robots.txt for the sitemap URL(s)
   try {
-    const robotsResponse = await fetch(new URL('robots.txt', siteUrl).toString(), __USER_AGENT_HEADER);
-    if (robotsResponse.ok) {
-      const robotsTxt = await robotsResponse.text();
-      const robotsSitemapUrls = parseRobotsTxt(robotsTxt);
-      if (robotsSitemapUrls && robotsSitemapUrls.length > 0) {
-        // Process each sitemap found in robots.txt
+    const robots = await getRobotsTxt(siteUrl);
+    if (robots.exists) {
+      if (robots.sitemaps) {
         for (const robotsSitemapUrl of robotsSitemapUrls) {
           if (__visitedSitemaps.includes(robotsSitemapUrl)) break;
           assessment(`Found Sitemap in robots.txt: ${robotsSitemapUrl}`);
@@ -91,11 +74,12 @@ async function fetchSitemapUrls(siteUrl, assessment) {
             }
           }
         }
-        return urls; // Return early if sitemap URLs are found in robots.txt
       }
+    } else {
+      assessment(`No robots.txt found for ${siteUrl}, using default sitemap URL.`);
     }
   } catch (error) {
-    assessment(`No robots.txt found for ${siteUrl}, using default sitemap URL.`);
+    
   }
 
   // Fetch and parse the default sitemap if no sitemap URL is found in robots.txt
