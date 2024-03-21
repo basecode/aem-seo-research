@@ -3,3 +3,4 @@ node_modules
 reports
 .DS_Store
 /assessment/output
+.idea/
