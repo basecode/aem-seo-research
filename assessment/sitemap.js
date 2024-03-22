@@ -110,6 +110,21 @@ async function fetchSitemapsFromRobots(siteUrl) {
   return fetchSitemapsFromSource(sitemapSources);
 }
 
+export async function fetchSitemapsFromBaseUrl(url) {
+  let sitemaps = await fetchSitemapsFromRobots(userSiteUrl);
+  if (!sitemaps.length) {
+    sitemaps = await fetchSitemapsFromSource([
+      { url: new URL('sitemap.xml', url).toString(), source: 'Default path /sitemap.xml' },
+    ]);
+    if (!sitemaps.length) {
+      sitemaps = await fetchSitemapsFromSource([
+        { url: new URL('sitemap_index.xml', url).toString(), source: 'Default path /sitemap_index.xml' },
+      ]);
+    }
+  }
+  return sitemaps;
+};
+
 (async () => {
   const assessment = await createAssessment(userSiteUrl, 'Sitemap');
   assessment.setRowHeadersAndDefaults({
@@ -120,17 +135,7 @@ async function fetchSitemapsFromRobots(siteUrl) {
     warning: '',
   });
 
-  let sitemaps = await fetchSitemapsFromRobots(userSiteUrl);
-  if (!sitemaps.length) {
-    sitemaps = await fetchSitemapsFromSource([
-      { url: new URL('sitemap.xml', userSiteUrl).toString(), source: 'Default path /sitemap.xml' },
-    ]);
-    if (!sitemaps.length) {
-      sitemaps = await fetchSitemapsFromSource([
-        { url: new URL('sitemap_index.xml', userSiteUrl).toString(), source: 'Default path /sitemap_index.xml' },
-      ]);
-    }
-  }
+  const sitemaps = await fetchSitemapsFromBaseUrl(userSiteUrl);
 
   // Assessment for sitemaps
   sitemaps.forEach(async (sitemap) => {
