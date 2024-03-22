@@ -12,7 +12,14 @@
 
 // get top 50 pages based on estimated traffic
 
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import { csv2json, json2csv } from 'json-2-csv';
+import { generateFileName } from './file-lib.js';
+
 const AHREFS_API_BASE_URL = 'https://api.ahrefs.com/v3';
+const OUTPUT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'output');
 
 const sendRequest = async (endpoint, queryParams = {}) => {
   const queryParamsKeys = Object.keys(queryParams);
@@ -46,17 +53,34 @@ const sendRequest = async (endpoint, queryParams = {}) => {
 };
 
 export const getTopPages = async (target) => {
+  // check if file exists that starts with and return immediately if it does
+  const files = fs.readdirSync(OUTPUT_DIR);
+  const existingFile = files.find((file) => file.startsWith(`${generateFileName(target, 'top-pages')}`));
+  if (existingFile) {
+    const cachedContent = fs.readFileSync(existingFile);
+    return csv2json(cachedContent);
+  }
+
   const queryParams = {
     select: [
       'url',
       'sum_traffic',
     ].join(','),
-    limit: 50,
+    limit: 200,
     order_by: 'sum_traffic_merged',
     target,
     date: new Date().toISOString().split('T')[0],
     date_compared: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     output: 'json',
   };
-  return sendRequest('/site-explorer/top-pages', queryParams);
+  // safe result as csv to cache
+  const { result } = await sendRequest('/site-explorer/top-pages', queryParams);
+  if (result.pages) {
+    const csvResult = json2csv(result.pages);
+    const FILE_PATH = path.join(OUTPUT_DIR, `${generateFileName(target, 'top-pages')}-${Date.now()}.csv`);
+    fs.writeFileSync(FILE_PATH, csvResult);
+    return result.pages;
+  } else {
+    throw new Error('No pages found in Ahrefs API response.');
+  }
 };

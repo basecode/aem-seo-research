@@ -10,17 +10,13 @@
  * governing permissions and limitations under the License.
  */
 
-import { fileURLToPath } from 'url';
 import fs from 'fs';
 import path from 'path';
 import { json2csv } from 'json-2-csv';
 import { getSiteByBaseUrl } from '../spacecat-lib.js';
+import { generateFileName, OUTPUT_DIR } from './file-lib.js';
 
 export const USER_AGENT = 'basecode/seo-research-crawler/1.0';
-
-const OUTPUT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'output');
-
-const sanitizeFilename = (url) => url.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
 
 const hrtimeToSeconds = (hrtime) => {
   const [seconds, nanoseconds] = hrtime; // Destructuring for clarity
@@ -37,11 +33,11 @@ export const createAssessment = async (userSite, userTitle) => {
   }
 
   console.log('Check if URL is qualified to be assessed. Needs to be part of spacecat catalogue');
-  const SITE = await getSiteByBaseUrl(userSite);
-  const SITE_URL = SITE.baseURL;
-  const FILE_PATH = path.join(OUTPUT_DIR, `${sanitizeFilename(userTitle)}-${sanitizeFilename(SITE_URL)}-${Date.now()}.csv`);
+  // const SITE = await getSiteByBaseUrl(userSite);
+  // const SITE_URL = SITE.baseURL;
+  const FILE_PATH = path.join(OUTPUT_DIR, `${generateFileName(userSite, userTitle)}-${Date.now()}.csv`);
 
-  console.log(`${userTitle}: Assessment for ${SITE_URL}`);
+  console.log(`${userTitle}: Assessment for ${userSite}`);
 
   let rowHeadersAndDefaults;
 

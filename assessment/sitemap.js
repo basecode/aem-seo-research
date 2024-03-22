@@ -123,7 +123,7 @@ export async function fetchSitemapsFromBaseUrl(url) {
     }
   }
   return sitemaps;
-};
+}
 
 (async () => {
   const assessment = await createAssessment(userSiteUrl, 'Sitemap');

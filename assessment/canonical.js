@@ -12,6 +12,7 @@
 import { JSDOM } from 'jsdom';
 import { createAssessment } from './assessment-lib.js';
 import { fetchSitemapsFromBaseUrl } from './sitemap.js';
+import { getTopPages } from './ahrefs-lib.js';
 
 const TRACKING_PARAM = '?utm';
 const userSiteUrl = process.argv[2];
@@ -62,11 +63,13 @@ const checkForCanonical = async (url, assessment) => {
 };
 
 const canonicalAudit = async (siteUrl, assessment) => {
-  // TODO: fetch sitemap url from file if already exists
-  const sitemaps = await fetchSitemapsFromBaseUrl(siteUrl);
-  return Promise.all(sitemaps.map((sitemap) => {
-    if (sitemap.page) {
-      return checkForCanonical(sitemap.page, assessment);
+  // get top pages
+  const pages = await getTopPages(siteUrl);
+
+  // eslint-disable-next-line consistent-return,array-callback-return
+  return Promise.all(pages.map((page) => {
+    if (page.url) {
+      return checkForCanonical(page.url, assessment);
     }
   }));
 };
