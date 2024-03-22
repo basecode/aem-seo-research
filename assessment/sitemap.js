@@ -18,80 +18,144 @@ import { createAssessment, getRobotsTxt, USER_AGENT } from './assessment-lib.js'
 dotenv.config();
 
 const userAgentHeader = { headers: { 'User-Agent': USER_AGENT } };
-const visitedSitemaps = [];
 const userSiteUrl = process.argv[2];
 
-async function parseSitemap(xml, source) {
-  if (visitedSitemaps.includes(source)) return [];
-  try {
-    const result = await parseStringPromise(xml);
-    if (result.urlset && result.urlset.url) {
-      return result.urlset.url.map((urlEntry) => urlEntry.loc[0]);
-    } else if (result.sitemapindex && result.sitemapindex.sitemap) {
-      const sitemapFetchPromises = result.sitemapindex.sitemap.map(async (sitemap) => {
-        const sitemapIndexUrl = sitemap.loc[0];
-        if (visitedSitemaps.includes(sitemapIndexUrl)) return undefined;
-        visitedSitemaps.push(sitemapIndexUrl);
-        const response = await fetch(sitemapIndexUrl, userAgentHeader);
-        if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
-          throw new Error(`Status: ${response.status}, Content-Type: ${response.headers.get('content-type')}`);
-        }
-        const contentType = response.headers.get('content-type');
-        const content = contentType.includes('application/x-gzip')
-          ? zlib.gunzipSync(Buffer.from(await response.arrayBuffer())).toString()
-          : await response.text();
-        return parseSitemap(content, sitemapIndexUrl);
-      });
-      const sitemapIndexUrls = await Promise.all(sitemapFetchPromises);
-      return sitemapIndexUrls.flat();
-    }
-  } catch (error) {
-    visitedSitemaps.push(source);
-    throw error;
+async function checkPage(url) {
+  const warnings = [];
+  const errors = [];
+  // drafts files in sitemap
+  if (url.includes('draft')) {
+    warnings.push(`Detected draft file: ${url}`);
   }
-  return [];
+  // file returns 2xx.
+  try {
+    const response = await fetch(url, { method: 'HEAD', 'User-Agent': USER_AGENT });
+    if (!response.ok) errors.push(`must return 2xx but returns ${response.status}`);
+  } catch (error) {
+    errors.push(`${url} returns error ${error.message}`);
+  }
+
+  return { errors, warnings };
 }
 
-async function fetchSitemapUrls(siteUrl, assessment) {
-  const sitemapUrl = new URL('sitemap.xml', siteUrl).toString();
-  visitedSitemaps.push(sitemapUrl); // Prevent re-fetching the same sitemap
+async function fetchSitemapXml(url) {
+  const response = await fetch(url, userAgentHeader);
+  if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
+    throw new Error(`HTTP Response Code: ${response.status}, Content-Type: ${response.headers.get('content-type')}`);
+  }
+  const contentType = response.headers.get('content-type');
+  const xml = contentType.includes('application/x-gzip')
+    ? zlib.gunzipSync(Buffer.from(await response.arrayBuffer())).toString()
+    : await response.text();
+  return xml;
+}
 
-  // Handle both robots.txt sitemaps and the default sitemap.xml
-  const sitemapSources = [sitemapUrl];
-  const robots = await getRobotsTxt(siteUrl);
-  if (robots.exists && robots.sitemaps) {
-    sitemapSources.push(...robots.sitemaps);
+async function fetchSitemapsFromSource(sources) {
+  async function parseSitemap(xml, sitemapObject) {
+    try {
+      const result = await parseStringPromise(xml);
+      if (result.urlset && result.urlset.url) {
+        return [{
+          url: sitemapObject.url,
+          source: sitemapObject.source,
+          locs: result.urlset.url.length,
+        }, ...result.urlset.url.map((urlEntry) => ({
+          page: urlEntry.loc[0],
+          source: sitemapObject.url,
+        }))];
+      } else if (result.sitemapindex && result.sitemapindex.sitemap) {
+        const sitemaps = await fetchSitemapsFromSource(result.sitemapindex.sitemap.map((entry) => ({
+          url: entry.loc[0],
+          source: sitemapObject.url,
+        })));
+        return [{
+          url: sitemapObject.url,
+          source: sitemapObject.source,
+          locs: result.sitemapindex.sitemap.length,
+        }, ...sitemaps];
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(error);
+    }
+    return [];
   }
 
-  const sitemapFetchPromises = sitemapSources.map(async (source) => {
+  const sitemapFetchPromises = sources.map(async (sitemapObject) => {
     try {
-      const response = await fetch(source, userAgentHeader);
-      if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
-        throw new Error(`Sitemap at ${source} not found or invalid.`);
+      try {
+        const fetchedXml = await fetchSitemapXml(sitemapObject.url);
+        return await parseSitemap(fetchedXml, sitemapObject);
+      } catch (fetchError) {
+        return { url: sitemapObject.url, source: sitemapObject.source, error: fetchError.message };
       }
-      const contentType = response.headers.get('content-type');
-      const content = contentType.includes('application/x-gzip')
-        ? zlib.gunzipSync(Buffer.from(await response.arrayBuffer())).toString()
-        : await response.text();
-      const urls = await parseSitemap(content, source);
-      assessment.addColumn({ sitemap: source, source, locs: urls.length });
     } catch (error) {
-      assessment.addColumn({ sitemap: source, source, error: error.message });
+      // eslint-disable-next-line no-console
+      console.error(error);
+      return [];
     }
   });
 
-  await Promise.all(sitemapFetchPromises);
+  const urls = await Promise.all(sitemapFetchPromises);
+  return urls.flat();
+}
+
+// Handle Sitemap in robots.txt
+async function fetchSitemapsFromRobots(siteUrl) {
+  const robots = await getRobotsTxt(siteUrl);
+  const sitemapSources = [];
+  if (robots.exists && robots.sitemaps) {
+    sitemapSources.push(...robots.sitemaps.map((url) => ({ url, source: '/robots.txt' })));
+  }
+  return fetchSitemapsFromSource(sitemapSources);
 }
 
 (async () => {
   const assessment = await createAssessment(userSiteUrl, 'Sitemap');
   assessment.setRowHeadersAndDefaults({
-    sitemap: '',
+    sitemapOrPage: '',
     source: '',
     locs: 0,
     error: '',
     warning: '',
   });
-  await fetchSitemapUrls(userSiteUrl, assessment);
+
+  let sitemaps = await fetchSitemapsFromRobots(userSiteUrl);
+  if (!sitemaps.length) {
+    sitemaps = await fetchSitemapsFromSource([
+      { url: new URL('sitemap.xml', userSiteUrl).toString(), source: 'Default path /sitemap.xml' },
+    ]);
+    if (!sitemaps.length) {
+      sitemaps = await fetchSitemapsFromSource([
+        { url: new URL('sitemap_index.xml', userSiteUrl).toString(), source: 'Default path /sitemap_index.xml' },
+      ]);
+    }
+  }
+
+  // Assessment for sitemaps
+  sitemaps.forEach(async (sitemap) => {
+    if (sitemap.url) {
+      assessment.addColumn({
+        sitemapOrPage: sitemap.url, source: sitemap.source, locs: sitemap.locs, error: sitemap.error || '', warning: sitemap.warning || '',
+      });
+    }
+  });
+
+  // Assessments for pages. We filer by unique pages, because they can appear in multiple sitemaps.
+  const seenPages = new Set();
+  const promises = sitemaps
+    .filter((item) => !!item.page)
+    .filter((item) => (seenPages.has(item.page) ? false : seenPages.add(item.page)))
+    .map(async (item) => {
+      const { errors, warnings } = await checkPage(item.page);
+      if (errors.length > 0 || warnings.length > 0) {
+        assessment.addColumn({
+          sitemapOrPage: item.page, source: item.source, error: errors.join(', '), warning: warnings.join(', '),
+        });
+      }
+    });
+
+  await Promise.all(promises);
+
   assessment.end();
 })();
