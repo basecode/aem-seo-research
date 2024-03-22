@@ -71,7 +71,7 @@ const canonicalAudit = async (siteUrl, assessment) => {
   }));
 };
 
-(async () => {
+export const canonical = (async () => {
   const assessment = await createAssessment(userSiteUrl, 'Canonical');
   assessment.setRowHeadersAndDefaults({
     url: '',
