@@ -52,11 +52,12 @@ const sendRequest = async (endpoint, queryParams = {}) => {
   }
 };
 
-export const getTopPages = async (target) => {
+export const getTopPages = async (target, limit) => {
   // check if file exists that starts with and return immediately if it does
   const files = fs.readdirSync(OUTPUT_DIR);
   const existingFile = files.find((file) => file.startsWith(`${generateFileName(target, 'top-pages')}`));
   if (existingFile) {
+    console.log(`Using cached file to avoid Ahrefs API call: ${existingFile}`);
     const cachedContent = fs.readFileSync(`${OUTPUT_DIR}/${existingFile}`);
     return csv2json(cachedContent.toString());
   }
@@ -66,7 +67,7 @@ export const getTopPages = async (target) => {
       'url',
       'sum_traffic',
     ].join(','),
-    limit: 200,
+    limit,
     order_by: 'sum_traffic_merged',
     target,
     date: new Date().toISOString().split('T')[0],

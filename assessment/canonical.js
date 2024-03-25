@@ -17,7 +17,13 @@ import { getTopPages } from './ahrefs-lib.js';
 const TRACKING_PARAM = '?utm';
 const userSiteUrl = process.argv[2];
 
-const checkForCanonical = async (url, assessment) => {
+const options = {
+  all: false,
+  topPages: 200,
+  ignoreAhrefsCache: false,
+};
+
+const checkForCanonical = async (url, assessment, source = 'ahrefs') => {
   try {
     const response = await fetch(url);
     const contentType = response.headers.get('content-type');
@@ -33,9 +39,10 @@ const checkForCanonical = async (url, assessment) => {
       if (canonicalLink) {
         assessment.addColumn({
           url,
+          source,
           canonicalExists: true,
           response: response.status,
-          presentInSiteMap: url === canonicalLink,
+          presentInSiteMap: source === 'sitemap' ? url === canonicalLink : '',
           www: url.startsWith('https://www.'),
           hasTrailingSlash: url.endsWith('/'),
           hasHtmlExtension: url.endsWith('.html'),
@@ -55,6 +62,7 @@ const checkForCanonical = async (url, assessment) => {
       });
     }
   } catch (error) {
+    console.error(`Error fetching URL ${url}: ${error.message}`);
     assessment.addColumn({
       url,
       error: `Error fetching URL ${url}: ${error.message}`,
@@ -63,21 +71,52 @@ const checkForCanonical = async (url, assessment) => {
 };
 
 const canonicalAudit = async (siteUrl, assessment) => {
-  // get top pages
-  const pages = await getTopPages(siteUrl);
-
-  // eslint-disable-next-line consistent-return,array-callback-return
-  return Promise.all(pages.map((page) => {
-    if (page.url && page.sum_traffic > 0) {
-      return checkForCanonical(page.url, assessment);
-    }
-  }));
+  if (options.all) {
+    // if all, get from sitemap
+    console.log('Fetching all pages from sitemap');
+    const pages = await fetchSitemapsFromBaseUrl(siteUrl);
+    // eslint-disable-next-line array-callback-return,consistent-return
+    return Promise.all(pages.map((page) => {
+      if (page.page) {
+        return checkForCanonical(page.page, assessment, 'sitemap');
+      }
+    }));
+  } else {
+    // if not all, get from ahrefs
+    console.log(`Fetching top ${options.topPages} pages from Ahrefs`);
+    const pages = await getTopPages(siteUrl, options.topPages);
+    // eslint-disable-next-line consistent-return,array-callback-return
+    return Promise.all(pages.map((page) => {
+      if (page.url && page.sum_traffic > 0) {
+        return checkForCanonical(page.url, assessment);
+      }
+    }));
+  }
 };
 
 export const canonical = (async () => {
+  process.argv.slice(3).forEach((arg) => {
+    if (arg === '--all') {
+      options.all = true;
+    } else if (arg.startsWith('--top-pages')) {
+      const [, value] = arg.split('=');
+      const number = parseInt(value, 10);
+      if (Number.isNaN(number) || number <= 0) {
+        console.error('Error: --top-pages must be a positive integer.');
+        process.exit(1);
+      }
+      options.topPages = number;
+    } else if (arg === '--ignore-ahrefs-cache') {
+      options.ignoreAhrefsCache = true;
+    } else {
+      console.error(`Error: Unknown option '${arg}'`);
+      process.exit(1);
+    }
+  });
   const assessment = await createAssessment(userSiteUrl, 'Canonical');
   assessment.setRowHeadersAndDefaults({
     url: '',
+    source: '',
     canonicalExists: '',
     response: '',
     presentInSiteMap: '',
@@ -88,6 +127,6 @@ export const canonical = (async () => {
     error: '',
     warning: '',
   });
-  await canonicalAudit(userSiteUrl, assessment);
+  await canonicalAudit(userSiteUrl, assessment, options);
   assessment.end();
 })();
