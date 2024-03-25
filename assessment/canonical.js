@@ -12,11 +12,18 @@
 import { JSDOM } from 'jsdom';
 import { createAssessment } from './assessment-lib.js';
 import { fetchSitemapsFromBaseUrl } from './sitemap.js';
+import { getTopPages } from './ahrefs-lib.js';
 
 const TRACKING_PARAM = '?utm';
 const userSiteUrl = process.argv[2];
 
-const checkForCanonical = async (url, assessment) => {
+const options = {
+  topPages: undefined,
+  sitemapSrc: undefined,
+};
+
+// eslint-disable-next-line consistent-return
+const checkForCanonical = async (url, assessment, source = 'ahrefs', retries = 3, backoff = 300) => {
   try {
     const response = await fetch(url);
     const contentType = response.headers.get('content-type');
@@ -32,9 +39,10 @@ const checkForCanonical = async (url, assessment) => {
       if (canonicalLink) {
         assessment.addColumn({
           url,
+          source,
           canonicalExists: true,
           response: response.status,
-          presentInSiteMap: url === canonicalLink,
+          presentInSiteMap: source === 'sitemap' ? url === canonicalLink : '',
           www: url.startsWith('https://www.'),
           hasTrailingSlash: url.endsWith('/'),
           hasHtmlExtension: url.endsWith('.html'),
@@ -54,37 +62,79 @@ const checkForCanonical = async (url, assessment) => {
       });
     }
   } catch (error) {
-    assessment.addColumn({
-      url,
-      error: `Error fetching URL ${url}: ${error.message}`,
-    });
+    if (retries > 0) {
+      console.log(`Error fetching URL ${url}: ${error.message}. Retrying in ${backoff}ms`);
+      await new Promise((resolve) => {
+        setTimeout(resolve, backoff);
+      });
+      return checkForCanonical(url, assessment, source, retries - 1, backoff * 2);
+    } else {
+      assessment.addColumn({
+        url,
+        error: `Error fetching URL ${url}: ${error.message} after ${retries} retries`,
+      });
+    }
   }
 };
 
 const canonicalAudit = async (siteUrl, assessment) => {
-  // TODO: fetch sitemap url from file if already exists
-  const sitemaps = await fetchSitemapsFromBaseUrl(siteUrl);
-  return Promise.all(sitemaps.map((sitemap) => {
-    if (sitemap.page) {
-      return checkForCanonical(sitemap.page, assessment);
-    }
-  }));
+  if (options.topPages) {
+    // if top pages are specified, get pages from ahrefs
+    // default, get pages from sitemap
+    console.log(`Fetching top ${options.topPages} pages from Ahrefs`);
+    const pages = await getTopPages(siteUrl, options.topPages);
+    // eslint-disable-next-line consistent-return,array-callback-return
+    return Promise.all(pages.map((page) => {
+      if (page.url && page.sum_traffic > 0) {
+        return checkForCanonical(page.url, assessment);
+      }
+    }));
+  } else {
+    console.log(`Fetching pages from sitemap ${options.sitemapSrc ? `provided at ${options.sitemapSrc}` : ''}`);
+    const pages = await fetchSitemapsFromBaseUrl(siteUrl, options.sitemapSrc);
+    // eslint-disable-next-line array-callback-return,consistent-return
+    return Promise.all(pages.map((page) => {
+      if (page.page) {
+        return checkForCanonical(page.page, assessment, 'sitemap');
+      }
+    }));
+  }
 };
 
 export const canonical = (async () => {
+  process.argv.slice(3).forEach((arg) => {
+    if (arg.startsWith('--top-pages')) {
+      const [, value] = arg.split('=');
+      const number = parseInt(value, 10);
+      if (Number.isNaN(number) || number <= 0) {
+        console.log('Defaulting to top 200 pages');
+        options.topPages = 200;
+      } else {
+        options.topPages = number;
+      }
+    } else if (arg.startsWith('--sitemap')) {
+      const [, value] = arg.split('=');
+      options.sitemapSrc = value;
+    } else {
+      console.error(`Error: Unknown option '${arg}'`);
+      process.exit(1);
+    }
+  });
   const assessment = await createAssessment(userSiteUrl, 'Canonical');
   assessment.setRowHeadersAndDefaults({
     url: '',
-    canonicalExists: false,
+    source: '',
+    canonicalExists: '',
     response: '',
-    presentInSiteMap: false,
-    www: undefined,
-    hasTrailingSlash: undefined,
-    hasHtmlExtension: undefined,
-    hasTrackingParams: undefined,
+    presentInSiteMap: '',
+    www: '',
+    hasTrailingSlash: '',
+    hasHtmlExtension: '',
+    hasTrackingParams: '',
     error: '',
     warning: '',
   });
-  await canonicalAudit(userSiteUrl, assessment);
+  await canonicalAudit(userSiteUrl, assessment, options);
   assessment.end();
+  process.exit(0);
 })();

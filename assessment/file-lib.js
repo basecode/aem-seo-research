@@ -9,10 +9,11 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
-import { canonical } from './assessment/canonical.js';
-import { sitemap } from './assessment/sitemap.js';
 
-(async () => {
-  await sitemap;
-  await canonical;
-})();
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+export const OUTPUT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'output');
+export const sanitizeFilename = (url) => url.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+
+export const generateFileName = (siteUrl, title) => `${sanitizeFilename(title)}-${sanitizeFilename(siteUrl)}`;

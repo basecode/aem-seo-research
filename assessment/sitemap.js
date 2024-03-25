@@ -110,7 +110,12 @@ async function fetchSitemapsFromRobots(siteUrl) {
   return fetchSitemapsFromSource(sitemapSources);
 }
 
-export async function fetchSitemapsFromBaseUrl(url) {
+export async function fetchSitemapsFromBaseUrl(url, sitemapSrc) {
+  if (sitemapSrc) {
+    return fetchSitemapsFromSource([
+      { url: new URL(sitemapSrc, url).toString(), source: 'user provided' },
+    ]);
+  }
   let sitemaps = await fetchSitemapsFromRobots(userSiteUrl);
   if (!sitemaps.length) {
     sitemaps = await fetchSitemapsFromSource([
@@ -123,7 +128,7 @@ export async function fetchSitemapsFromBaseUrl(url) {
     }
   }
   return sitemaps;
-};
+}
 
 export const sitemap = (async () => {
   const assessment = await createAssessment(userSiteUrl, 'Sitemap');
@@ -138,10 +143,10 @@ export const sitemap = (async () => {
   const sitemaps = await fetchSitemapsFromBaseUrl(userSiteUrl);
 
   // Assessment for sitemaps
-  sitemaps.forEach(async (sitemap) => {
-    if (sitemap.url) {
+  sitemaps.forEach(async (sm) => {
+    if (sm.url) {
       assessment.addColumn({
-        sitemapOrPage: sitemap.url, source: sitemap.source, locs: sitemap.locs, error: sitemap.error || '', warning: sitemap.warning || '',
+        sitemapOrPage: sm.url, source: sm.source, locs: sm.locs, error: sm.error || '', warning: sm.warning || '',
       });
     }
   });
