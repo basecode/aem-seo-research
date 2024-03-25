@@ -125,7 +125,7 @@ export async function fetchSitemapsFromBaseUrl(url) {
   return sitemaps;
 }
 
-(async () => {
+export const sitemap = (async () => {
   const assessment = await createAssessment(userSiteUrl, 'Sitemap');
   assessment.setRowHeadersAndDefaults({
     sitemapOrPage: '',
