@@ -10,8 +10,6 @@
  * governing permissions and limitations under the License.
  */
 
-// get top 50 pages based on estimated traffic
-
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
