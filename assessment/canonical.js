@@ -18,9 +18,7 @@ const TRACKING_PARAM = '?utm';
 const userSiteUrl = process.argv[2];
 
 const options = {
-  all: false,
-  topPages: 200,
-  ignoreAhrefsCache: false,
+  topPages: undefined,
   sitemapSrc: undefined,
 };
 
@@ -80,18 +78,9 @@ const checkForCanonical = async (url, assessment, source = 'ahrefs', retries = 3
 };
 
 const canonicalAudit = async (siteUrl, assessment) => {
-  if (options.all || options.sitemapSrc) {
-    // if all, get from sitemap
-    console.log('Fetching all pages from sitemap');
-    const pages = await fetchSitemapsFromBaseUrl(siteUrl, options.sitemapSrc);
-    // eslint-disable-next-line array-callback-return,consistent-return
-    return Promise.all(pages.map((page) => {
-      if (page.page) {
-        return checkForCanonical(page.page, assessment, 'sitemap');
-      }
-    }));
-  } else {
-    // if not all, get from ahrefs
+  if (options.topPages) {
+    // if top pages are specified, get pages from ahrefs
+    // default, get pages from sitemap
     console.log(`Fetching top ${options.topPages} pages from Ahrefs`);
     const pages = await getTopPages(siteUrl, options.topPages);
     // eslint-disable-next-line consistent-return,array-callback-return
@@ -100,23 +89,29 @@ const canonicalAudit = async (siteUrl, assessment) => {
         return checkForCanonical(page.url, assessment);
       }
     }));
+  } else {
+    console.log(`Fetching pages from sitemap ${options.sitemapSrc ? `provided at ${options.sitemapSrc}` : ''}`);
+    const pages = await fetchSitemapsFromBaseUrl(siteUrl, options.sitemapSrc);
+    // eslint-disable-next-line array-callback-return,consistent-return
+    return Promise.all(pages.map((page) => {
+      if (page.page) {
+        return checkForCanonical(page.page, assessment, 'sitemap');
+      }
+    }));
   }
 };
 
 export const canonical = (async () => {
   process.argv.slice(3).forEach((arg) => {
-    if (arg === '--all') {
-      options.all = true;
-    } else if (arg.startsWith('--top-pages')) {
+    if (arg.startsWith('--top-pages')) {
       const [, value] = arg.split('=');
       const number = parseInt(value, 10);
       if (Number.isNaN(number) || number <= 0) {
-        console.error('Error: --top-pages must be a positive integer.');
-        process.exit(1);
+        console.log('Defaulting to top 200 pages');
+        options.topPages = 200;
+      } else {
+        options.topPages = number;
       }
-      options.topPages = number;
-    } else if (arg === '--ignore-ahrefs-cache') {
-      options.ignoreAhrefsCache = true;
     } else if (arg.startsWith('--sitemap')) {
       const [, value] = arg.split('=');
       options.sitemapSrc = value;
@@ -141,4 +136,5 @@ export const canonical = (async () => {
   });
   await canonicalAudit(userSiteUrl, assessment, options);
   assessment.end();
+  process.exit(0);
 })();

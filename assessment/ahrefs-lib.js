@@ -53,7 +53,7 @@ const sendRequest = async (endpoint, queryParams = {}) => {
 export const getTopPages = async (target, limit) => {
   // check if file exists that starts with and return immediately if it does
   const files = fs.readdirSync(OUTPUT_DIR);
-  const existingFile = files.find((file) => file.startsWith(`${generateFileName(target, 'top-pages')}`));
+  const existingFile = files.find((file) => file.startsWith(`${generateFileName(target, `top-pages-${limit}`)}`));
   if (existingFile) {
     console.log(`Using cached file to avoid Ahrefs API call: ${existingFile}`);
     const cachedContent = fs.readFileSync(`${OUTPUT_DIR}/${existingFile}`);
@@ -76,7 +76,7 @@ export const getTopPages = async (target, limit) => {
   const { result } = await sendRequest('/site-explorer/top-pages', queryParams);
   if (result.pages) {
     const csvResult = json2csv(result.pages);
-    const FILE_PATH = path.join(OUTPUT_DIR, `${generateFileName(target, 'top-pages')}-${Date.now()}.csv`);
+    const FILE_PATH = path.join(OUTPUT_DIR, `${generateFileName(target, `top-pages-${limit}`)}-${Date.now()}.csv`);
     fs.writeFileSync(FILE_PATH, csvResult);
     return result.pages;
   } else {
