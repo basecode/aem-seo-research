@@ -14,6 +14,7 @@ import fs from 'fs';
 import path from 'path';
 import { json2csv } from 'json-2-csv';
 import { generateFileName, OUTPUT_DIR } from './file-lib.js';
+import { getSiteByBaseUrl } from '../spacecat-lib.js';
 
 export const USER_AGENT = 'basecode/seo-research-crawler/1.0';
 
@@ -32,11 +33,11 @@ export const createAssessment = async (userSite, userTitle) => {
   }
 
   console.log('Check if URL is qualified to be assessed. Needs to be part of spacecat catalogue');
-  // const SITE = await getSiteByBaseUrl(userSite);
-  // const SITE_URL = SITE.baseURL;
-  const FILE_PATH = path.join(OUTPUT_DIR, `${generateFileName(userSite, userTitle)}-${Date.now()}.csv`);
+  const SITE = await getSiteByBaseUrl(userSite);
+  const SITE_URL = SITE.baseURL;
+  const FILE_PATH = path.join(OUTPUT_DIR, `${generateFileName(SITE_URL, userTitle)}-${Date.now()}.csv`);
 
-  console.log(`${userTitle}: Assessment for ${userSite}`);
+  console.log(`${userTitle}: Assessment for ${SITE_URL}`);
 
   let rowHeadersAndDefaults;
 
