@@ -24,6 +24,7 @@ const options = {
   sitemapSrc: undefined,
 };
 
+// eslint-disable-next-line consistent-return
 const checkForCanonical = async (url, assessment, source = 'ahrefs', retries = 3, backoff = 300) => {
   try {
     const response = await fetch(url);
@@ -65,7 +66,9 @@ const checkForCanonical = async (url, assessment, source = 'ahrefs', retries = 3
   } catch (error) {
     if (retries > 0) {
       console.log(`Error fetching URL ${url}: ${error.message}. Retrying in ${backoff}ms`);
-      await new Promise(resolve => setTimeout(resolve, backoff));
+      await new Promise((resolve) => {
+        setTimeout(resolve, backoff);
+      });
       return checkForCanonical(url, assessment, source, retries - 1, backoff * 2);
     } else {
       assessment.addColumn({

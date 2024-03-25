@@ -13,7 +13,6 @@
 import fs from 'fs';
 import path from 'path';
 import { json2csv } from 'json-2-csv';
-import { getSiteByBaseUrl } from '../spacecat-lib.js';
 import { generateFileName, OUTPUT_DIR } from './file-lib.js';
 
 export const USER_AGENT = 'basecode/seo-research-crawler/1.0';

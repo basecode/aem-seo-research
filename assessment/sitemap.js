@@ -143,10 +143,10 @@ export const sitemap = (async () => {
   const sitemaps = await fetchSitemapsFromBaseUrl(userSiteUrl);
 
   // Assessment for sitemaps
-  sitemaps.forEach(async (sitemap) => {
-    if (sitemap.url) {
+  sitemaps.forEach(async (sm) => {
+    if (sm.url) {
       assessment.addColumn({
-        sitemapOrPage: sitemap.url, source: sitemap.source, locs: sitemap.locs, error: sitemap.error || '', warning: sitemap.warning || '',
+        sitemapOrPage: sm.url, source: sm.source, locs: sm.locs, error: sm.error || '', warning: sm.warning || '',
       });
     }
   });
