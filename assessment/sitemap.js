@@ -110,7 +110,12 @@ async function fetchSitemapsFromRobots(siteUrl) {
   return fetchSitemapsFromSource(sitemapSources);
 }
 
-export async function fetchSitemapsFromBaseUrl(url) {
+export async function fetchSitemapsFromBaseUrl(url, sitemapSrc) {
+  if (sitemapSrc) {
+    return fetchSitemapsFromSource([
+      { url: new URL(sitemapSrc, url).toString(), source: 'user provided' },
+    ]);
+  }
   let sitemaps = await fetchSitemapsFromRobots(userSiteUrl);
   if (!sitemaps.length) {
     sitemaps = await fetchSitemapsFromSource([

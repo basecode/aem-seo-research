@@ -21,9 +21,10 @@ const options = {
   all: false,
   topPages: 200,
   ignoreAhrefsCache: false,
+  sitemapSrc: undefined,
 };
 
-const checkForCanonical = async (url, assessment, source = 'ahrefs') => {
+const checkForCanonical = async (url, assessment, source = 'ahrefs', retries = 3, backoff = 300) => {
   try {
     const response = await fetch(url);
     const contentType = response.headers.get('content-type');
@@ -62,19 +63,24 @@ const checkForCanonical = async (url, assessment, source = 'ahrefs') => {
       });
     }
   } catch (error) {
-    console.error(`Error fetching URL ${url}: ${error.message}`);
-    assessment.addColumn({
-      url,
-      error: `Error fetching URL ${url}: ${error.message}`,
-    });
+    if (retries > 0) {
+      console.log(`Error fetching URL ${url}: ${error.message}. Retrying in ${backoff}ms`);
+      await new Promise(resolve => setTimeout(resolve, backoff));
+      return checkForCanonical(url, assessment, source, retries - 1, backoff * 2);
+    } else {
+      assessment.addColumn({
+        url,
+        error: `Error fetching URL ${url}: ${error.message} after ${retries} retries`,
+      });
+    }
   }
 };
 
 const canonicalAudit = async (siteUrl, assessment) => {
-  if (options.all) {
+  if (options.all || options.sitemapSrc) {
     // if all, get from sitemap
     console.log('Fetching all pages from sitemap');
-    const pages = await fetchSitemapsFromBaseUrl(siteUrl);
+    const pages = await fetchSitemapsFromBaseUrl(siteUrl, options.sitemapSrc);
     // eslint-disable-next-line array-callback-return,consistent-return
     return Promise.all(pages.map((page) => {
       if (page.page) {
@@ -108,6 +114,9 @@ export const canonical = (async () => {
       options.topPages = number;
     } else if (arg === '--ignore-ahrefs-cache') {
       options.ignoreAhrefsCache = true;
+    } else if (arg.startsWith('--sitemap')) {
+      const [, value] = arg.split('=');
+      options.sitemapSrc = value;
     } else {
       console.error(`Error: Unknown option '${arg}'`);
       process.exit(1);
