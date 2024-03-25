@@ -1,6 +1,14 @@
 # aem-seo-research
 Misc SEO research
 
+## Setup
+Create .env file with the following content:
+```
+SPACECAT_API_KEY=
+AHREFS_API_KEY=
+```
+Retrieve the values from [Vault](https://vault-amer.adobe.net/ui/vault/secrets/aem_exp_success_eng/show/spacecat/seo).
+
 ## How to trigger all assessments
 
 `npm run all <baselUrl>`

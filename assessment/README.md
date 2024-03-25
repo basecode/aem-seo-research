@@ -1,9 +1,10 @@
 # SEO assessment
 
-## How to
+## Setup
 
-Run all assessments sequentially. Every assessment shall return a CSV that can be copy/pasted into the overall assessment.
-Every assessment requires an URL as first parameter. The URL must be contained in SpaceCat Catalogue.
+- Run all assessments sequentially.  
+- Every assessment shall return a CSV that can be copy/pasted into the overall assessment.  
+- Every assessment requires a URL as first parameter. The URL must exist within the SpaceCat Catalogue.
 
 Example: `node ./assessment/sitemap.js "https://bitdefender.com.au/solutions/"`
 
