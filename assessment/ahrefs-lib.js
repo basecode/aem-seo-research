@@ -57,8 +57,8 @@ export const getTopPages = async (target) => {
   const files = fs.readdirSync(OUTPUT_DIR);
   const existingFile = files.find((file) => file.startsWith(`${generateFileName(target, 'top-pages')}`));
   if (existingFile) {
-    const cachedContent = fs.readFileSync(existingFile);
-    return csv2json(cachedContent);
+    const cachedContent = fs.readFileSync(`${OUTPUT_DIR}/${existingFile}`);
+    return csv2json(cachedContent.toString());
   }
 
   const queryParams = {

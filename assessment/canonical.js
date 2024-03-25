@@ -68,7 +68,7 @@ const canonicalAudit = async (siteUrl, assessment) => {
 
   // eslint-disable-next-line consistent-return,array-callback-return
   return Promise.all(pages.map((page) => {
-    if (page.url) {
+    if (page.url && page.sum_traffic > 0) {
       return checkForCanonical(page.url, assessment);
     }
   }));
@@ -78,13 +78,13 @@ const canonicalAudit = async (siteUrl, assessment) => {
   const assessment = await createAssessment(userSiteUrl, 'Canonical');
   assessment.setRowHeadersAndDefaults({
     url: '',
-    canonicalExists: false,
+    canonicalExists: '',
     response: '',
-    presentInSiteMap: false,
-    www: undefined,
-    hasTrailingSlash: undefined,
-    hasHtmlExtension: undefined,
-    hasTrackingParams: undefined,
+    presentInSiteMap: '',
+    www: '',
+    hasTrailingSlash: '',
+    hasHtmlExtension: '',
+    hasTrackingParams: '',
     error: '',
     warning: '',
   });
