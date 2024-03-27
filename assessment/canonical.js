@@ -11,8 +11,8 @@
  */
 import { JSDOM } from 'jsdom';
 import { createAssessment } from './assessment-lib.js';
-import { fetchSitemapsFromBaseUrl } from './sitemap.js';
 import { getTopPages } from './ahrefs-lib.js';
+import { fetchAllPages } from './utils/support.js';
 
 const TRACKING_PARAM = '?utm';
 const userSiteUrl = process.argv[2];
@@ -37,6 +37,7 @@ const checkForCanonical = async (url, assessment, source = 'ahrefs', retries = 3
 
       // check if canonical link exists
       if (canonicalLink) {
+        // TODO: check if canonical link is valid and only report errors
         assessment.addColumn({
           url,
           source,
@@ -91,7 +92,7 @@ const canonicalAudit = async (siteUrl, assessment) => {
     }));
   } else {
     console.log(`Fetching pages from sitemap ${options.sitemapSrc ? `provided at ${options.sitemapSrc}` : ''}`);
-    const pages = await fetchSitemapsFromBaseUrl(siteUrl, options.sitemapSrc);
+    const pages = await fetchAllPages(siteUrl, options.sitemapSrc);
     // eslint-disable-next-line array-callback-return,consistent-return
     return Promise.all(pages.map((page) => {
       if (page.page) {

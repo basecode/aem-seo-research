@@ -15,8 +15,7 @@ import path from 'path';
 import { json2csv } from 'json-2-csv';
 import { generateFileName, OUTPUT_DIR } from './file-lib.js';
 import { getSiteByBaseUrl } from '../spacecat-lib.js';
-
-export const USER_AGENT = 'basecode/seo-research-crawler/1.0';
+import { userAgentHeader } from './utils/support.js';
 
 const hrtimeToSeconds = (hrtime) => {
   const [seconds, nanoseconds] = hrtime; // Destructuring for clarity
@@ -33,11 +32,11 @@ export const createAssessment = async (userSite, userTitle) => {
   }
 
   console.log('Check if URL is qualified to be assessed. Needs to be part of spacecat catalogue');
-  const SITE = await getSiteByBaseUrl(userSite);
-  const SITE_URL = SITE.baseURL;
-  const FILE_PATH = path.join(OUTPUT_DIR, `${generateFileName(SITE_URL, userTitle)}-${Date.now()}.csv`);
+  // const SITE = await getSiteByBaseUrl(userSite);
+  // const SITE_URL = SITE.baseURL;
+  const FILE_PATH = path.join(OUTPUT_DIR, `${generateFileName(userSite, userTitle)}-${Date.now()}.csv`);
 
-  console.log(`${userTitle}: Assessment for ${SITE_URL}`);
+  console.log(`${userTitle}: Assessment for ${userSite}`);
 
   let rowHeadersAndDefaults;
 
@@ -84,9 +83,7 @@ export const getRobotsTxt = async (siteUrl) => {
   };
 
   try {
-    const robotsResponse = await fetch(new URL('robots.txt', siteUrl).toString(), {
-      headers: { 'User-Agent': USER_AGENT },
-    });
+    const robotsResponse = await fetch(new URL('robots.txt', siteUrl).toString(), userAgentHeader);
     if (robotsResponse.ok) {
       const robotsTxt = await robotsResponse.text();
       return parseRobotsTxt(robotsTxt);

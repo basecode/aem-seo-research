@@ -10,10 +10,9 @@
  * governing permissions and limitations under the License.
  */
 import fetch from 'node-fetch';
+import { USER_AGENT } from './assessment/utils/support.js';
 
 const BASE_URL = 'https://spacecat.experiencecloud.live/api/v1';
-
-const USER_AGENT = 'basecode/seo-research-crawler/1.0';
 
 export async function makeApiCall(method, url, data = null) {
   try {
