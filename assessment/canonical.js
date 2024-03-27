@@ -15,8 +15,8 @@ import { createAssessment } from './assessment-lib.js';
 import { fetchSitemapsFromBaseUrl } from './sitemap.js';
 import FileCache from './libs/file-cache.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
+import { OUTPUT_DIR } from './file-lib.js';
 
-const OUTPUT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'output');
 const TRACKING_PARAM = '?utm';
 const userSiteUrl = process.argv[2];
 
