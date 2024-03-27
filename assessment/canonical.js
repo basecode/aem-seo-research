@@ -12,7 +12,7 @@
 import { JSDOM } from 'jsdom';
 import { createAssessment } from './assessment-lib.js';
 import { getTopPages } from './ahrefs-lib.js';
-import { fetchAllPages } from './utils/support.js';
+import { fetchAllPages, USER_AGENT } from './utils/support.js';
 
 const TRACKING_PARAM = '?utm';
 const userSiteUrl = process.argv[2];
@@ -20,6 +20,20 @@ const userSiteUrl = process.argv[2];
 const options = {
   topPages: undefined,
   sitemapSrc: undefined,
+};
+
+const startsWithWww = (url) => url.startsWith('https://www.');
+const endsWithSlash = (url) => url.endsWith('/');
+const endsWithHtml = (url) => url.endsWith('.html');
+const containsTrackingParams = (url) => url.includes(TRACKING_PARAM);
+const checkForDuplicateUrl = async (url) => {
+  try {
+    const response = await fetch(url, { method: 'HEAD', 'User-Agent': USER_AGENT });
+    return response.ok;
+  } catch (error) {
+    console.error(`Error checking URL: ${url}`, error);
+    return false;
+  }
 };
 
 // eslint-disable-next-line consistent-return
@@ -35,31 +49,49 @@ const checkForCanonical = async (url, assessment, source = 'ahrefs', retries = 3
       const { head } = dom.window.document;
       const canonicalLink = head.querySelector('link[rel="canonical"]')?.href;
 
-      // check if canonical link exists
       if (canonicalLink) {
-        // TODO: check if canonical link is valid and only report errors
-        assessment.addColumn({
-          url,
-          source,
-          canonicalExists: true,
-          response: response.status,
-          presentInSiteMap: source === 'sitemap' ? url === canonicalLink : '',
-          www: url.startsWith('https://www.'),
-          hasTrailingSlash: url.endsWith('/'),
-          hasHtmlExtension: url.endsWith('.html'),
-          hasTrackingParams: url.includes(TRACKING_PARAM),
-        });
+        const alternativeWwwUrl = startsWithWww(url) ? url.replace('https://www.', 'https://') : `https://www.${url.slice(8)}`;
+        const alternativeSlashUrl = endsWithSlash(url) ? url.slice(0, -1) : `${url}/`;
+        const alternativeHtmlUrl = endsWithHtml(url) ? url.slice(0, -5) : `${url}.html`;
+
+        const isAlternativeWwwDuplicate = await checkForDuplicateUrl(alternativeWwwUrl);
+        const isAlternativeSlashDuplicate = await checkForDuplicateUrl(alternativeSlashUrl);
+        const isAlternativeHtmlDuplicate = await checkForDuplicateUrl(alternativeHtmlUrl);
+
+        const issues = [
+          startsWithWww(url) !== startsWithWww(canonicalLink) ? 'www mismatch' : '',
+          endsWithSlash(url) !== endsWithSlash(canonicalLink) ? 'trailing slash mismatch' : '',
+          endsWithHtml(url) !== !endsWithHtml(canonicalLink) ? 'html extension mismatch' : '',
+          containsTrackingParams(url) ? 'tracking params present and should be removed' : '',
+          isAlternativeWwwDuplicate ? `duplicate URL detected for ${startsWithWww(url) ? 'non-www' : 'www'} version` : '',
+          isAlternativeSlashDuplicate ? `duplicate URL detected for ${endsWithSlash(url) ? 'non-slash' : 'slash'} version` : '',
+          isAlternativeHtmlDuplicate ? `duplicate URL detected for ${endsWithHtml(url) ? 'non-html' : 'html'} version` : '',
+        ].filter((issue) => issue !== ''); // Filter out non-issues
+
+        // check if canonical link exists
+        if (issues.length > 0) {
+          const issuesSummary = issues.join(', ');
+          assessment.addColumn({
+            url,
+            source,
+            response: response.status,
+            error: issuesSummary,
+          });
+        }
       } else {
         assessment.addColumn({
           url,
+          source,
+          response: response.status,
           error: 'No canonical link found',
         });
       }
     } else {
       assessment.addColumn({
         url,
+        source,
         response: response.status,
-        error: `URL ${url} is not an HTML page`,
+        error: 'URL does not exist or is not an HTML page',
       });
     }
   } catch (error) {
@@ -72,6 +104,7 @@ const checkForCanonical = async (url, assessment, source = 'ahrefs', retries = 3
     } else {
       assessment.addColumn({
         url,
+        source,
         error: `Error fetching URL ${url}: ${error.message} after ${retries} retries`,
       });
     }
@@ -125,15 +158,7 @@ export const canonical = (async () => {
   assessment.setRowHeadersAndDefaults({
     url: '',
     source: '',
-    canonicalExists: '',
-    response: '',
-    presentInSiteMap: '',
-    www: '',
-    hasTrailingSlash: '',
-    hasHtmlExtension: '',
-    hasTrackingParams: '',
     error: '',
-    warning: '',
   });
   await canonicalAudit(userSiteUrl, assessment, options);
   assessment.end();
