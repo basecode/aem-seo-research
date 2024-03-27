@@ -98,7 +98,11 @@ export default class AhrefsAPIClient {
     const TOP_PAGES = 'top-pages';
     const cached = this.cache.get(TOP_PAGES, { url, limit });
     if (cached) {
-      return cached;
+      return {
+        result: {
+          pages: cached,
+        },
+      };
     }
 
     const MONTH_IN_MS = 30 * 24 * 60 * 60 * 1000;
@@ -126,7 +130,11 @@ export default class AhrefsAPIClient {
     const ALL_BACKLINKS = 'all-backlinks';
     const cached = this.cache.get(ALL_BACKLINKS, { url, limit });
     if (cached) {
-      return cached;
+      return {
+        result: {
+          backlinks: cached,
+        },
+      };
     }
 
     const filter = {

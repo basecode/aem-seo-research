@@ -86,9 +86,9 @@ const canonicalAudit = async (siteUrl, assessment) => {
     // default, get pages from sitemap
     console.log(`Fetching top ${options.topPages} pages from Ahrefs`);
     const ahrefsClient = new AhrefsAPIClient({ apiKey: process.env.AHREFS_API_KEY }, new FileCache(OUTPUT_DIR));
-    const pages = await ahrefsClient.getTopPages(siteUrl, options.topPages);
+    const response = await ahrefsClient.getTopPages(siteUrl, options.topPages);
     // eslint-disable-next-line consistent-return,array-callback-return
-    return Promise.all(pages.map((page) => {
+    return Promise.all(response?.result?.pages.map((page) => {
       if (page.url && page.sum_traffic > 0) {
         return checkForCanonical(page.url, assessment);
       }
