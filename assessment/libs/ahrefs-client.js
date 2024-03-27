@@ -94,8 +94,9 @@ export default class AhrefsAPIClient {
     return this.sendRequest('/site-explorer/broken-backlinks', queryParams);
   }
 
-  async getTopPages(url, limit){
-    const cached = this.cache.get('top-pages', { url, limit });
+  async getTopPages(url, limit = 100){
+    const TOP_PAGES = 'top-pages';
+    const cached = this.cache.get(TOP_PAGES, { url, limit });
     if (cached) {
       return cached;
     }
@@ -110,13 +111,50 @@ export default class AhrefsAPIClient {
       limit,
       order_by: 'sum_traffic_merged',
       target: url,
+      mode: 'prefix',
       date: new Date().toISOString().split('T')[0],
       date_compared: new Date(Date.now() - MONTH_IN_MS).toISOString().split('T')[0],
       output: 'json',
     };
 
     const response = await this.sendRequest('/site-explorer/top-pages', queryParams);
-    this.cache.put('top-pages', { url, limit }, response?.result?.pages);
+    this.cache.put(TOP_PAGES, { url, limit }, response?.result?.pages);
+    return response;
+  }
+
+  async getBacklinks(url, limit = 200) {
+    const ALL_BACKLINKS = 'all-backlinks';
+    const cached = this.cache.get(ALL_BACKLINKS, { url, limit });
+    if (cached) {
+      return cached;
+    }
+
+    const filter = {
+      and: [
+        { field: 'is_dofollow', is: ['eq', 1] },
+        { field: 'is_content', is: ['eq', 1] },
+        { field: 'domain_rating_source', is: ['gte', 29.5] },
+        { field: 'traffic_domain', is: ['gte', 500] },
+        { field: 'links_external', is: ['lte', 300] },
+      ],
+    };
+
+    const queryParams = {
+      select: [
+        'title',
+        'url_from',
+        'url_to',
+      ].join(','),
+      limit: 50,
+      mode: 'prefix',
+      order_by: 'domain_rating_source:desc,traffic_domain:desc',
+      target: url,
+      output: 'json',
+      where: JSON.stringify(filter),
+    };
+
+    const response = await this.sendRequest('/site-explorer/all-backlinks', queryParams);
+    this.cache.put(ALL_BACKLINKS, { url, limit }, response?.result?.backlinks);
     return response;
   }
 }
