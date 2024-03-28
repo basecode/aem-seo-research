@@ -22,7 +22,7 @@ export default class FileCache {
 
   put(key, parameters, value) {
     if (!value) {
-      console.warn(`No value to cache`);
+      console.warn('No value to cache');
     }
     const csvResult = json2csv(value);
     const FILE_PATH = path.join(this.outputDir, `${generateFileName(parameters.url, `${key}-${parameters.limit}`)}-${Date.now()}.csv`);
@@ -34,7 +34,7 @@ export default class FileCache {
     const existingFile = files.find((file) => file.startsWith(`${generateFileName(parameters.url, `${key}-${parameters.limit}`)}`));
     if (existingFile) {
       console.log(`Using cache from file to avoid Ahrefs API call: ${existingFile}`);
-      const cachedContent = fs.readFileSync(`${OUTPUT_DIR}/${existingFile}`);
+      const cachedContent = fs.readFileSync(`${this.outputDir}/${existingFile}`);
       return csv2json(cachedContent.toString());
     }
     return null;
