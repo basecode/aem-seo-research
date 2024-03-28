@@ -94,7 +94,7 @@ export default class AhrefsAPIClient {
     return this.sendRequest('/site-explorer/broken-backlinks', queryParams);
   }
 
-  async getTopPages(url, limit = 100){
+  async getTopPages(url, limit = 100) {
     const TOP_PAGES = 'top-pages';
     const cached = this.cache.get(TOP_PAGES, { url, limit });
     if (cached) {

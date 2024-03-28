@@ -22,7 +22,7 @@ export default class FileCache {
 
   put(key, parameters, value) {
     if (!value) {
-      console.warn(`No value to cache`);
+      console.warn('No value to cache');
     }
     const csvResult = json2csv(value);
     const FILE_PATH = path.join(this.outputDir, `${generateFileName(parameters.url, `${key}-${parameters.limit}`)}-${Date.now()}.csv`);
