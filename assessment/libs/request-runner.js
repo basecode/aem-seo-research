@@ -41,12 +41,13 @@ export default class RequestRunner {
    * @returns {Promise<Array<Response>>} A promise that resolves with an array of responses.
    */
   async run(requests) {
-    return Promise.all(requests.map(async (request, i) => {
+    const responses = [];
+    for (let i = 0; i < requests.length; i += 1) {
       let retry = 0;
       let response;
       do {
         // eslint-disable-next-line no-await-in-loop
-        response = await request();
+        response = await requests[i]();
         if (response.status === 429) {
           // eslint-disable-next-line no-await-in-loop
           await RequestRunner.sleep(this.sleepTime * this.backoffFactor ** retry);
@@ -56,13 +57,15 @@ export default class RequestRunner {
         }
       } while (true);
 
+      responses.push(response);
+
       if (response.ok) {
         console.log(`Request ${i + 1} succeeded.`);
       } else {
         console.log(`Request ${i + 1} failed with status: ${response.status}`);
       }
+    }
 
-      return response;
-    }));
+    return responses;
   }
 }
