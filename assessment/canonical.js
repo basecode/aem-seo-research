@@ -85,7 +85,10 @@ const canonicalAudit = async (siteUrl, assessment) => {
     // if top pages are specified, get pages from ahrefs
     // default, get pages from sitemap
     console.log(`Fetching top ${options.topPages} pages from Ahrefs`);
-    const ahrefsClient = new AhrefsAPIClient({ apiKey: process.env.AHREFS_API_KEY }, new FileCache(OUTPUT_DIR));
+    const ahrefsClient = new AhrefsAPIClient(
+      { apiKey: process.env.AHREFS_API_KEY },
+      new FileCache(OUTPUT_DIR),
+    );
     const response = await ahrefsClient.getTopPages(siteUrl, options.topPages);
     // eslint-disable-next-line consistent-return,array-callback-return
     return Promise.all(response?.result?.pages.map((page) => {
