@@ -19,7 +19,7 @@ export default class RequestRunner {
    * @param {number} sleepTime - The sleep time in milliseconds between retries.
    * @param {number} backoffFactor - The backoff factor for exponential backoff.
    */
-  constructor(sleepTime, backoffFactor) {
+  constructor(sleepTime = 1000, backoffFactor = 2) {
     this.sleepTime = sleepTime;
     this.backoffFactor = backoffFactor;
   }

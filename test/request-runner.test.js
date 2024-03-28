@@ -22,7 +22,7 @@ const { expect } = chai;
 describe('RequestRunner', () => {
   describe('run', () => {
     it('should handle successful requests', async () => {
-      const runner = new RequestRunner();
+      const runner = new RequestRunner(0, 2);
       const mockRequest = sinon.stub().resolves({ status: 200, ok: true });
       const responses = await runner.run([mockRequest]);
 
@@ -32,7 +32,7 @@ describe('RequestRunner', () => {
     });
 
     it('should handle failed requests', async () => {
-      const runner = new RequestRunner();
+      const runner = new RequestRunner(0, 2);
       const mockRequest = sinon.stub().resolves({ status: 400, ok: false });
       const responses = await runner.run([mockRequest]);
 
@@ -42,7 +42,7 @@ describe('RequestRunner', () => {
     });
 
     it('should retry on 429 status', async () => {
-      const runner = new RequestRunner();
+      const runner = new RequestRunner(0, 2);
       const mockRequest = sinon.stub();
       mockRequest.onCall(0).resolves({ status: 429, ok: false });
       mockRequest.onCall(1).resolves({ status: 200, ok: true });
@@ -54,7 +54,7 @@ describe('RequestRunner', () => {
     });
 
     it('should continue with next request after a request throws an exception', async () => {
-      const runner = new RequestRunner();
+      const runner = new RequestRunner(0, 2);
       const mockRequest1 = sinon.stub().throws(new Error('Request failed'));
       const mockRequest2 = sinon.stub().resolves({ status: 200, ok: true });
       const responses = await runner.run([mockRequest1, mockRequest2]);
