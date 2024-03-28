@@ -13,7 +13,9 @@
 import fetch from 'node-fetch';
 import cheerio from 'cheerio';
 import { USER_AGENT, createAssessment } from './assessment-lib.js';
-import { getTopPages } from './ahrefs-lib.js';
+import AhrefsAPIClient from './libs/ahrefs-client.js';
+import FileCache from './libs/file-cache.js';
+import {OUTPUT_DIR} from './file-lib.js';
 
 async function fetchInternalLinks(pageUrl) {
   try {
@@ -46,7 +48,7 @@ async function fetchInternalLinks(pageUrl) {
 
 const checkLink = (async (link) => {
   try {
-    const response = await fetch(link, { method: 'HEAD', 'User-Agent': USER_AGENT });
+    const response = await fetch(link, { method: 'GET', 'User-Agent': USER_AGENT });
     if (!response.ok) return { link, status: response.status };
   } catch (error) {
     return { link, status: 'Error fetching link' };
@@ -83,7 +85,8 @@ const checkForBrokenInternalLinks = (async (url, assessment) => {
 
 const brokenInternalLinksAudit = (async (siteUrl, assessment, params) => {
   console.log(`Fetching top ${params.topPages} pages from Ahrefs`);
-  const pages = await getTopPages(siteUrl, params.topPages);
+  const ahrefsClient = new AhrefsAPIClient({ apiKey: process.env.AHREFS_API_KEY }, new FileCache(OUTPUT_DIR));
+  const pages = await ahrefsClient.getTopPages(siteUrl, params.topPages);
 
   const handleChunkItem = (async (page) => {
     if (page.url && page.sum_traffic > 0) {
@@ -91,11 +94,6 @@ const brokenInternalLinksAudit = (async (siteUrl, assessment, params) => {
     }
     return null;
   });
-
-  // for (const page of pages) {
-  //   // eslint-disable-next-line no-await-in-loop
-  //   await handleChunkItem(page);
-  // }
 
   const chunks = [];
   console.log('Pages to be checked:', pages.length);

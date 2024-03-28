@@ -34,7 +34,7 @@ export default class FileCache {
     const existingFile = files.find((file) => file.startsWith(`${generateFileName(parameters.url, `${key}-${parameters.limit}`)}`));
     if (existingFile) {
       console.log(`Using cache from file to avoid Ahrefs API call: ${existingFile}`);
-      const cachedContent = fs.readFileSync(`${OUTPUT_DIR}/${existingFile}`);
+      const cachedContent = fs.readFileSync(`${this.outputDir}/${existingFile}`);
       return csv2json(cachedContent.toString());
     }
     return null;
