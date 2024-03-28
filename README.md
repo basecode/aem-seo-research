@@ -13,9 +13,13 @@ Retrieve the values from [Vault](https://vault-amer.adobe.net/ui/vault/secrets/a
 
 `npm run all <baselUrl>`
 
+## How to trigger sitemap assessment
+
+`npm run sitemap <baseUrl>`
+
 ## How to trigger canonical assessment
 
-`node ./assessment/canonical.js <baseUrl> [options]`
+`npm run canonical <baseUrl> [options]`
 
 Options:
 - `--top-pages=<number>` - Run audit for top pages (default 200), based on estimated organic traffic
