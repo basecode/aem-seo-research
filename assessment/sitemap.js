@@ -9,15 +9,16 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
-import zlib from 'zlib';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
-import { parseStringPromise } from 'xml2js';
-import { createAssessment, getRobotsTxt, USER_AGENT } from './assessment-lib.js';
+
+import { createAssessment } from './assessment-lib.js';
+import {
+  fetchAllPages, fetchSitemapsFromSource, findSitemap, USER_AGENT,
+} from './utils/support.js';
 
 dotenv.config();
 
-const userAgentHeader = { headers: { 'User-Agent': USER_AGENT } };
 const userSiteUrl = process.argv[2];
 
 async function checkPage(url) {
@@ -38,85 +39,13 @@ async function checkPage(url) {
   return { errors, warnings };
 }
 
-async function fetchSitemapXml(url) {
-  const response = await fetch(url, userAgentHeader);
-  if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
-    throw new Error(`HTTP Response Code: ${response.status}, Content-Type: ${response.headers.get('content-type')}`);
-  }
-  const contentType = response.headers.get('content-type');
-  const xml = contentType.includes('application/x-gzip')
-    ? zlib.gunzipSync(Buffer.from(await response.arrayBuffer())).toString()
-    : await response.text();
-  return xml;
-}
-
-async function fetchSitemapsFromSource(sources) {
-  async function parseSitemap(xml, sitemapObject) {
-    try {
-      const result = await parseStringPromise(xml);
-      if (result.urlset && result.urlset.url) {
-        return [{
-          url: sitemapObject.url,
-          source: sitemapObject.source,
-          locs: result.urlset.url.length,
-        }, ...result.urlset.url.map((urlEntry) => ({
-          page: urlEntry.loc[0],
-          source: sitemapObject.url,
-        }))];
-      } else if (result.sitemapindex && result.sitemapindex.sitemap) {
-        const sitemaps = await fetchSitemapsFromSource(result.sitemapindex.sitemap.map((entry) => ({
-          url: entry.loc[0],
-          source: sitemapObject.url,
-        })));
-        return [{
-          url: sitemapObject.url,
-          source: sitemapObject.source,
-          locs: result.sitemapindex.sitemap.length,
-        }, ...sitemaps];
-      }
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error(error);
-    }
-    return [];
-  }
-
-  const sitemapFetchPromises = sources.map(async (sitemapObject) => {
-    try {
-      try {
-        const fetchedXml = await fetchSitemapXml(sitemapObject.url);
-        return await parseSitemap(fetchedXml, sitemapObject);
-      } catch (fetchError) {
-        return { url: sitemapObject.url, source: sitemapObject.source, error: fetchError.message };
-      }
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error(error);
-      return [];
-    }
-  });
-
-  const urls = await Promise.all(sitemapFetchPromises);
-  return urls.flat();
-}
-
-// Handle Sitemap in robots.txt
-async function fetchSitemapsFromRobots(siteUrl) {
-  const robots = await getRobotsTxt(siteUrl);
-  const sitemapSources = [];
-  if (robots.exists && robots.sitemaps) {
-    sitemapSources.push(...robots.sitemaps.map((url) => ({ url, source: '/robots.txt' })));
-  }
-  return fetchSitemapsFromSource(sitemapSources);
-}
-
 export async function fetchSitemapsFromBaseUrl(url, sitemapSrc) {
   if (sitemapSrc) {
     return fetchSitemapsFromSource([
-      { url: new URL(sitemapSrc, url).toString(), source: 'user provided' },
+      new URL(sitemapSrc, url).toString(),
     ]);
   }
-  let sitemaps = await fetchSitemapsFromRobots(userSiteUrl);
+  let sitemaps = await findSitemap(userSiteUrl);
   if (!sitemaps.length) {
     sitemaps = await fetchSitemapsFromSource([
       { url: new URL('sitemap.xml', url).toString(), source: 'Default path /sitemap.xml' },
@@ -140,7 +69,7 @@ export const sitemap = (async () => {
     warning: '',
   });
 
-  const sitemaps = await fetchSitemapsFromBaseUrl(userSiteUrl);
+  const sitemaps = await fetchAllPages(userSiteUrl);
 
   // Assessment for sitemaps
   sitemaps.forEach(async (sm) => {

@@ -14,9 +14,8 @@ import fs from 'fs';
 import path from 'path';
 import { json2csv } from 'json-2-csv';
 import { generateFileName, OUTPUT_DIR } from './file-lib.js';
+import { userAgentHeader } from './utils/support.js';
 import { getSiteByBaseUrl } from '../spacecat-lib.js';
-
-export const USER_AGENT = 'basecode/seo-research-crawler/1.0';
 
 const hrtimeToSeconds = (hrtime) => {
   const [seconds, nanoseconds] = hrtime; // Destructuring for clarity
@@ -84,9 +83,7 @@ export const getRobotsTxt = async (siteUrl) => {
   };
 
   try {
-    const robotsResponse = await fetch(new URL('robots.txt', siteUrl).toString(), {
-      headers: { 'User-Agent': USER_AGENT },
-    });
+    const robotsResponse = await fetch(new URL('robots.txt', siteUrl).toString(), userAgentHeader);
     if (robotsResponse.ok) {
       const robotsTxt = await robotsResponse.text();
       return parseRobotsTxt(robotsTxt);

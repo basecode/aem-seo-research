@@ -12,10 +12,10 @@
 
 import { JSDOM } from 'jsdom';
 import { createAssessment } from './assessment-lib.js';
-import { fetchSitemapsFromBaseUrl } from './sitemap.js';
 import FileCache from './libs/file-cache.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
 import { OUTPUT_DIR } from './file-lib.js';
+import { fetchAllPages } from './utils/support.js';
 
 const TRACKING_PARAM = '?utm';
 const userSiteUrl = process.argv[2];
@@ -40,6 +40,7 @@ const checkForCanonical = async (url, assessment, source = 'ahrefs', retries = 3
 
       // check if canonical link exists
       if (canonicalLink) {
+        // TODO: check if canonical link is valid and only report errors
         assessment.addColumn({
           url,
           source,
@@ -85,7 +86,9 @@ const canonicalAudit = async (siteUrl, assessment) => {
     // if top pages are specified, get pages from ahrefs
     // default, get pages from sitemap
     console.log(`Fetching top ${options.topPages} pages from Ahrefs`);
-    const ahrefsClient = new AhrefsAPIClient({ apiKey: process.env.AHREFS_API_KEY }, new FileCache(OUTPUT_DIR));
+    const ahrefsClient = new AhrefsAPIClient({
+      apiKey: process.env.AHREFS_API_KEY,
+    }, new FileCache(OUTPUT_DIR));
     const response = await ahrefsClient.getTopPages(siteUrl, options.topPages);
     // eslint-disable-next-line consistent-return,array-callback-return
     return Promise.all(response?.result?.pages.map((page) => {
@@ -95,7 +98,7 @@ const canonicalAudit = async (siteUrl, assessment) => {
     }));
   } else {
     console.log(`Fetching pages from sitemap ${options.sitemapSrc ? `provided at ${options.sitemapSrc}` : ''}`);
-    const pages = await fetchSitemapsFromBaseUrl(siteUrl, options.sitemapSrc);
+    const pages = await fetchAllPages(siteUrl, options.sitemapSrc);
     // eslint-disable-next-line array-callback-return,consistent-return
     return Promise.all(pages.map((page) => {
       if (page.page) {

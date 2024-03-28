@@ -7,6 +7,8 @@
   "scripts": {
     "test": "npm run test",
     "all": "node all-assessments.js",
+    "canonical": "node ./assessment/canonical.js",
+    "sitemap": "node ./assessment/sitemap.js",
     "lint": "eslint ."
   },
   "repository": {
