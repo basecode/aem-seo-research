@@ -27,6 +27,7 @@
   },
   "homepage": "https://github.com/basecode/aem-seo-research#readme",
   "dependencies": {
+    "@adobe/spacecat-shared-utils": "1.14.2",
     "axios": "^1.6.7",
     "dotenv": "^16.4.1",
     "jsdom": "^24.0.0",

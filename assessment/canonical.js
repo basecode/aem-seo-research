@@ -9,9 +9,12 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
+
 import { JSDOM } from 'jsdom';
 import { createAssessment } from './assessment-lib.js';
-import { getTopPages } from './ahrefs-lib.js';
+import FileCache from './libs/file-cache.js';
+import AhrefsAPIClient from './libs/ahrefs-client.js';
+import { OUTPUT_DIR } from './file-lib.js';
 import { fetchAllPages } from './utils/support.js';
 
 const TRACKING_PARAM = '?utm';
@@ -83,9 +86,10 @@ const canonicalAudit = async (siteUrl, assessment) => {
     // if top pages are specified, get pages from ahrefs
     // default, get pages from sitemap
     console.log(`Fetching top ${options.topPages} pages from Ahrefs`);
-    const pages = await getTopPages(siteUrl, options.topPages);
+    const ahrefsClient = new AhrefsAPIClient({ apiKey: process.env.AHREFS_API_KEY }, new FileCache(OUTPUT_DIR));
+    const response = await ahrefsClient.getTopPages(siteUrl, options.topPages);
     // eslint-disable-next-line consistent-return,array-callback-return
-    return Promise.all(pages.map((page) => {
+    return Promise.all(response?.result?.pages.map((page) => {
       if (page.url && page.sum_traffic > 0) {
         return checkForCanonical(page.url, assessment);
       }
