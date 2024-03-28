@@ -31,6 +31,7 @@
     "jsdom": "^24.0.0",
     "json-2-csv": "^5.5.1",
     "node-fetch": "^3.3.2",
+    "spacecat-sdk": "https://gitpkg.now.sh/adobe/spacecat-shared/packages/spacecat-shared-sdk?spacecat-sdk",
     "xml2js": "^0.6.2",
     "zlib": "^1.0.5"
   },
