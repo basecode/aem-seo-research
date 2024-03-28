@@ -15,6 +15,7 @@ import path from 'path';
 import { json2csv } from 'json-2-csv';
 import { generateFileName, OUTPUT_DIR } from './file-lib.js';
 import { userAgentHeader } from './utils/support.js';
+import { getSiteByBaseUrl } from '../spacecat-lib.js';
 
 const hrtimeToSeconds = (hrtime) => {
   const [seconds, nanoseconds] = hrtime; // Destructuring for clarity
@@ -31,8 +32,8 @@ export const createAssessment = async (userSite, userTitle) => {
   }
 
   console.log('Check if URL is qualified to be assessed. Needs to be part of spacecat catalogue');
-  // const SITE = await getSiteByBaseUrl(userSite);
-  const SITE_URL = userSite //SITE.baseURL;
+  const SITE = await getSiteByBaseUrl(userSite);
+  const SITE_URL = SITE.baseURL;
   const FILE_PATH = path.join(OUTPUT_DIR, `${generateFileName(SITE_URL, userTitle)}-${Date.now()}.csv`);
 
   console.log(`${userTitle}: Assessment for ${SITE_URL}`);
