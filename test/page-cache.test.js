@@ -20,7 +20,7 @@ import PageCache from '../assessment/libs/page-cache.js';
 describe('PageCache', () => {
   let sandbox;
   let pageCache;
-  const outputDir = './test-page-cache';
+  const outputDir = 'test-page-cache';
   const pageUrl = 'http://foo.com/bar';
   const pageDetails = { body: 'Test Page', status: 200 };
 
