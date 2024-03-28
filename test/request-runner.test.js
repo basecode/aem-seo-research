@@ -52,5 +52,17 @@ describe('RequestRunner', () => {
       expect(responses[0]).to.deep.equal({ status: 200, ok: true });
       expect(mockRequest.calledTwice).to.be.true;
     });
+
+    it('should continue with next request after a request throws an exception', async () => {
+      const runner = new RequestRunner();
+      const mockRequest1 = sinon.stub().throws(new Error('Request failed'));
+      const mockRequest2 = sinon.stub().resolves({ status: 200, ok: true });
+      const responses = await runner.run([mockRequest1, mockRequest2]);
+
+      expect(responses).to.have.lengthOf(1);
+      expect(responses[0]).to.deep.equal({ status: 200, ok: true });
+      expect(mockRequest1.calledOnce).to.be.true;
+      expect(mockRequest2.calledOnce).to.be.true;
+    });
   });
 });
