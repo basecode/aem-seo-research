@@ -23,6 +23,7 @@ export default class AhrefsCache {
   put(query, parameters, responseItems) {
     if (!responseItems) {
       console.warn('No responseItems to cache');
+      return;
     }
     const csvResult = json2csv(responseItems);
     const FILE_PATH = path.join(this.outputDir, `${generateFileName(parameters.url, `${query}-${parameters.limit}`)}-${Date.now()}.csv`);
