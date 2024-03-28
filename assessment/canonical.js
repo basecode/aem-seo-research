@@ -13,7 +13,7 @@
 import { JSDOM } from 'jsdom';
 import { createAssessment } from './assessment-lib.js';
 import { fetchSitemapsFromBaseUrl } from './sitemap.js';
-import FileCache from './libs/file-cache.js';
+import AhrefsCache from './libs/ahrefs-cache.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
 import { OUTPUT_DIR } from './file-lib.js';
 
@@ -87,7 +87,7 @@ const canonicalAudit = async (siteUrl, assessment) => {
     console.log(`Fetching top ${options.topPages} pages from Ahrefs`);
     const ahrefsClient = new AhrefsAPIClient(
       { apiKey: process.env.AHREFS_API_KEY },
-      new FileCache(OUTPUT_DIR),
+      new AhrefsCache(OUTPUT_DIR),
     );
     const response = await ahrefsClient.getTopPages(siteUrl, options.topPages);
     // eslint-disable-next-line consistent-return,array-callback-return

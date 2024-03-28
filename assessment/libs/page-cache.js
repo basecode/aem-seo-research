@@ -12,30 +12,29 @@
 
 import path from 'path';
 import fs from 'fs';
-import { csv2json, json2csv } from 'json-2-csv';
 import { generateFileName } from '../file-lib.js';
 
-export default class FileCache {
+export default class PageCache {
   constructor(outputDir) {
     this.outputDir = outputDir;
   }
 
-  put(key, parameters, value) {
-    if (!value) {
-      console.warn('No value to cache');
+  put(pageUrl, pageDetails) {
+    if (!pageDetails) {
+      console.warn('No pageDetails to cache');
+      return;
     }
-    const csvResult = json2csv(value);
-    const FILE_PATH = path.join(this.outputDir, `${generateFileName(parameters.url, `${key}-${parameters.limit}`)}-${Date.now()}.csv`);
-    fs.writeFileSync(FILE_PATH, csvResult);
+    const FILE_PATH = path.join(this.outputDir, `${generateFileName(pageUrl, 'page-cache')}.json`);
+    fs.writeFileSync(FILE_PATH, JSON.stringify(pageDetails));
   }
 
-  get(key, parameters) {
+  get(pageUrl) {
     const files = fs.readdirSync(this.outputDir);
-    const existingFile = files.find((file) => file.startsWith(`${generateFileName(parameters.url, `${key}-${parameters.limit}`)}`));
+    const existingFile = files.find((file) => file.startsWith(`${generateFileName(pageUrl, 'page-cache')}.json`));
     if (existingFile) {
-      console.log(`Using cache from file to avoid Ahrefs API call: ${existingFile}`);
+      console.log(`Using cache from file to avoid requesting the page again: ${existingFile}`);
       const cachedContent = fs.readFileSync(`${this.outputDir}/${existingFile}`);
-      return csv2json(cachedContent.toString());
+      return JSON.parse(cachedContent.toString());
     }
     return null;
   }
