@@ -18,6 +18,33 @@ export default class PageVisitor {
   }
 
   async visit(pageUrls) {
-    return Promise.resolve(pageUrls);
+    // Compose the list of async functions that do the fetch call
+    const fetchFunctions = pageUrls.map((url) => async () => {
+      try {
+        const response = await fetch(url);
+        const body = await response.text();
+        const headers = response.headers.raw();
+        const { status } = response;
+
+        return {
+          url, status, body, headers,
+        };
+      } catch (error) {
+        this.log.error(`Failed to fetch ${url}: ${error.message}`);
+        return null;
+      }
+    });
+
+    // Run the fetch functions with delays and exponential backoff
+    const responses = await this.runner.run(fetchFunctions);
+
+    // Store the responses in the cache
+    responses.forEach((response) => {
+      if (response) {
+        this.cache.put(response.url, response);
+      }
+    });
+
+    return responses;
   }
 }

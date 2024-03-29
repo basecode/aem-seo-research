@@ -18,20 +18,19 @@ import fs from 'fs';
 import PageCache from '../assessment/libs/page-cache.js';
 
 describe('PageCache', () => {
-  let sandbox;
-  let pageCache;
-  const outputDir = 'test-page-cache';
   const pageUrl = 'http://foo.com/bar';
   const pageDetails = {
-    pageUrl: 'http://foo.com/bar',
+    url: 'http://foo.com/bar',
     status: 200,
     headers: { 'Content-Type': 'text/html' },
     body: 'Test Page',
   };
+  let sandbox;
+  let pageCache;
 
   beforeEach(() => {
     sandbox = sinon.createSandbox();
-    pageCache = new PageCache(outputDir);
+    pageCache = new PageCache('test-page-cache');
   });
 
   afterEach(() => {
