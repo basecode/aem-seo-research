@@ -13,10 +13,12 @@
 import fs from 'fs';
 import path from 'path';
 import { json2csv } from 'json-2-csv';
+import { composeAuditURL } from '@adobe/spacecat-shared-utils';
+import SpaceCatSdk from 'spacecat-sdk/src/sdk.js';
 import { generateFileName, OUTPUT_DIR } from './file-lib.js';
-import { getSiteByBaseUrl } from '../spacecat-lib.js';
 
 export const USER_AGENT = 'basecode/seo-research-crawler/1.0';
+const SPACECAT_API_BASE_URL = 'https://spacecat.experiencecloud.live/api/v1';
 
 const hrtimeToSeconds = (hrtime) => {
   const [seconds, nanoseconds] = hrtime; // Destructuring for clarity
@@ -33,10 +35,12 @@ export const createAssessment = async (userSite, userTitle) => {
   }
 
   console.log('Check if URL is qualified to be assessed. Needs to be part of spacecat catalogue');
-  const SITE = await getSiteByBaseUrl(userSite);
-  const SITE_URL = SITE.baseURL;
+  const spaceCatSdk = new SpaceCatSdk(
+    { apiBaseUrl: SPACECAT_API_BASE_URL, apiKey: process.env.SPACECAT_API_KEY },
+  );
+  const SITE = await spaceCatSdk.getSite(userSite);
+  const SITE_URL = await composeAuditURL(SITE.baseURL);
   const FILE_PATH = path.join(OUTPUT_DIR, `${generateFileName(SITE_URL, userTitle)}-${Date.now()}.csv`);
-
   console.log(`${userTitle}: Assessment for ${SITE_URL}`);
 
   let rowHeadersAndDefaults;

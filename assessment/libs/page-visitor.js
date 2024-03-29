@@ -9,3 +9,15 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
+
+export default class PageVisitor {
+  constructor(runner, cache, log = console) {
+    this.runner = runner;
+    this.cache = cache;
+    this.log = log;
+  }
+
+  async visit(pageUrls) {
+    return Promise.resolve(pageUrls);
+  }
+}

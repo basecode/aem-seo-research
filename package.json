@@ -7,7 +7,7 @@
   "scripts": {
     "test": "npm run test",
     "all": "node all-assessments.js",
-    "lint": "eslint ."
+    "lint": "eslint . --fix"
   },
   "repository": {
     "type": "git",
@@ -26,6 +26,7 @@
   "homepage": "https://github.com/basecode/aem-seo-research#readme",
   "dependencies": {
     "@adobe/spacecat-shared-utils": "1.14.2",
+    "spacecat-sdk": "https://gitpkg.now.sh/adobe/spacecat-shared/packages/spacecat-shared-sdk?spacecat-sdk",
     "axios": "^1.6.7",
     "dotenv": "^16.4.1",
     "jsdom": "^24.0.0",

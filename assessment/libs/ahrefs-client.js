@@ -20,7 +20,7 @@ export default class AhrefsAPIClient {
     return new AhrefsAPIClient({ apiBaseUrl, apiKey });
   }
 
-  constructor(config, cache) {
+  constructor(config, cache, log = console) {
     const { apiKey, apiBaseUrl = AHREFS_API_BASE_URL } = config;
 
     if (!isValidUrl(apiBaseUrl)) {
@@ -33,6 +33,7 @@ export default class AhrefsAPIClient {
       get: () => {},
       put: () => {},
     };
+    this.log = log;
   }
 
   async sendRequest(endpoint, queryParams = {}) {
@@ -51,7 +52,12 @@ export default class AhrefsAPIClient {
       },
     });
 
+    this.log.info(`Ahrefs API ${endpoint} response has number of rows: ${response.headers.get('x-api-rows')}, 
+      cost per row: ${response.headers.get('x-api-units-cost-row')},
+      total cost: ${response.headers.get('x-api-units-cost-total-actual')}`);
+
     if (!response.ok) {
+      this.log.error(`Ahrefs API request failed with status: ${response.status}`);
       throw new Error(`Ahrefs API request failed with status: ${response.status}`);
     }
 
@@ -62,11 +68,16 @@ export default class AhrefsAPIClient {
         fullAuditRef,
       };
     } catch (e) {
+      this.log.error(`Error parsing Ahrefs API response: ${e.message}`);
       throw new Error(`Error parsing Ahrefs API response: ${e.message}`);
     }
   }
 
   async getBrokenBacklinks(url) {
+    const BROKEN_BACKLINKS = 'broken-backlinks';
+
+    this.log.info(`Calling Ahrefs API ${BROKEN_BACKLINKS} for url ${url}`);
+
     const filter = {
       and: [
         { field: 'is_dofollow', is: ['eq', 1] },
@@ -91,11 +102,13 @@ export default class AhrefsAPIClient {
       where: JSON.stringify(filter),
     };
 
-    return this.sendRequest('/site-explorer/broken-backlinks', queryParams);
+    return this.sendRequest(`/site-explorer/${BROKEN_BACKLINKS}`, queryParams);
   }
 
   async getTopPages(url, limit = 100) {
     const TOP_PAGES = 'top-pages';
+    this.log.info(`Calling Ahrefs API ${TOP_PAGES} for url ${url}`);
+
     const cached = this.cache.get(TOP_PAGES, { url, limit });
     if (cached) {
       return {
@@ -121,13 +134,15 @@ export default class AhrefsAPIClient {
       output: 'json',
     };
 
-    const response = await this.sendRequest('/site-explorer/top-pages', queryParams);
+    const response = await this.sendRequest(`/site-explorer/${TOP_PAGES}`, queryParams);
     this.cache.put(TOP_PAGES, { url, limit }, response?.result?.pages);
     return response;
   }
 
   async getBacklinks(url, limit = 200) {
     const ALL_BACKLINKS = 'all-backlinks';
+    this.log.info(`Calling Ahrefs API ${ALL_BACKLINKS} for url ${url}`);
+
     const cached = this.cache.get(ALL_BACKLINKS, { url, limit });
     if (cached) {
       return {
@@ -161,7 +176,7 @@ export default class AhrefsAPIClient {
       where: JSON.stringify(filter),
     };
 
-    const response = await this.sendRequest('/site-explorer/all-backlinks', queryParams);
+    const response = await this.sendRequest(`/site-explorer/${ALL_BACKLINKS}`, queryParams);
     this.cache.put(ALL_BACKLINKS, { url, limit }, response?.result?.backlinks);
     return response;
   }

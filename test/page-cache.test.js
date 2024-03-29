@@ -22,7 +22,12 @@ describe('PageCache', () => {
   let pageCache;
   const outputDir = 'test-page-cache';
   const pageUrl = 'http://foo.com/bar';
-  const pageDetails = { body: 'Test Page', status: 200 };
+  const pageDetails = {
+    pageUrl: 'http://foo.com/bar',
+    status: 200,
+    headers: { 'Content-Type': 'text/html' },
+    body: 'Test Page',
+  };
 
   beforeEach(() => {
     sandbox = sinon.createSandbox();

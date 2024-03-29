@@ -15,13 +15,14 @@ import fs from 'fs';
 import { generateFileName } from '../file-lib.js';
 
 export default class PageCache {
-  constructor(outputDir) {
+  constructor(outputDir, log = console) {
     this.outputDir = outputDir;
+    this.log = log;
   }
 
   put(pageUrl, pageDetails) {
     if (!pageDetails) {
-      console.warn('No pageDetails to cache');
+      this.log.warn('No pageDetails to cache');
       return;
     }
     const FILE_PATH = path.join(this.outputDir, `${generateFileName(pageUrl, 'page-cache')}.json`);
@@ -32,7 +33,7 @@ export default class PageCache {
     const files = fs.readdirSync(this.outputDir);
     const existingFile = files.find((file) => file.startsWith(`${generateFileName(pageUrl, 'page-cache')}.json`));
     if (existingFile) {
-      console.log(`Using cache from file to avoid requesting the page again: ${existingFile}`);
+      this.log.info(`Using cache from file to avoid requesting the page again: ${existingFile}`);
       const cachedContent = fs.readFileSync(`${this.outputDir}/${existingFile}`);
       return JSON.parse(cachedContent.toString());
     }

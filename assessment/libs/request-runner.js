@@ -19,9 +19,10 @@ export default class RequestRunner {
    * @param {number} sleepTime - The sleep time in milliseconds between retries.
    * @param {number} backoffFactor - The backoff factor for exponential backoff.
    */
-  constructor(sleepTime = 1000, backoffFactor = 2) {
+  constructor(sleepTime = 1000, backoffFactor = 2, log = console) {
     this.sleepTime = sleepTime;
     this.backoffFactor = backoffFactor;
+    this.log = log;
   }
 
   /**
@@ -62,12 +63,12 @@ export default class RequestRunner {
         responses.push(response);
 
         if (response.ok) {
-          console.log(`Request ${i + 1} succeeded.`);
+          this.log.info(`Request ${i + 1} succeeded.`);
         } else {
-          console.log(`Request ${i + 1} failed with status: ${response.status}`);
+          this.log.error(`Request ${i + 1} failed with status: ${response.status}`);
         }
       } catch (error) {
-        console.error(`Request ${i + 1} threw an exception: ${error}`);
+        this.log.error(`Request ${i + 1} threw an exception: ${error}`);
       }
 
       // eslint-disable-next-line no-await-in-loop
