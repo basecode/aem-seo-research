@@ -18,7 +18,7 @@ export default class PageVisitor {
   }
 
   async visit(pageUrls) {
-    // Compose the list of async functions that do the fetch call
+    this.log.info(`Visiting ${pageUrls.length} pages`);
     const fetchFunctions = pageUrls.map((url) => async () => {
       try {
         const response = await fetch(url);
@@ -35,14 +35,11 @@ export default class PageVisitor {
       }
     });
 
-    // Run the fetch functions with delays and exponential backoff
     const responses = await this.runner.run(fetchFunctions);
 
-    // Store the responses in the cache
     responses.forEach((response) => {
-      if (response) {
-        this.cache.put(response.url, response);
-      }
+      this.log.info(`Caching response for ${response.url}`);
+      this.cache.put(response.url, response);
     });
 
     return responses;
