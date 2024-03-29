@@ -11,8 +11,11 @@
  */
 
 import { isValidUrl } from '@adobe/spacecat-shared-utils';
+import HttpClient from './fetch-client.js';
 
 const AHREFS_API_BASE_URL = 'https://api.ahrefs.com/v3';
+
+const httpClient = new HttpClient().getInstance();
 
 export default class AhrefsAPIClient {
   static createFrom(context) {
@@ -43,13 +46,16 @@ export default class AhrefsAPIClient {
         .join('&')}` : '';
 
     const fullAuditRef = `${this.apiBaseUrl}${endpoint}${queryString}`;
-    const response = await fetch(fullAuditRef, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-    });
+
+    const response = await httpClient.get(
+        fullAuditRef,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+        }
+    );
 
     if (!response.ok) {
       throw new Error(`Ahrefs API request failed with status: ${response.status}`);
@@ -97,6 +103,7 @@ export default class AhrefsAPIClient {
   async getTopPages(url, limit = 100) {
     const TOP_PAGES = 'top-pages';
     const cached = this.cache.get(TOP_PAGES, { url, limit });
+
     if (cached) {
       return {
         result: {

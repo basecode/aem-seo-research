@@ -10,14 +10,14 @@
  * governing permissions and limitations under the License.
  */
 import zlib from 'zlib';
-import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import { parseStringPromise } from 'xml2js';
-import { createAssessment, getRobotsTxt, USER_AGENT } from './assessment-lib.js';
+import { createAssessment, getRobotsTxt } from './assessment-lib.js';
+import HttpClient from './libs/fetch-client.js';
 
 dotenv.config();
 
-const userAgentHeader = { headers: { 'User-Agent': USER_AGENT } };
+const httpClient = new HttpClient().getInstance();
 const userSiteUrl = process.argv[2];
 
 async function checkPage(url) {
@@ -29,7 +29,7 @@ async function checkPage(url) {
   }
   // file returns 2xx.
   try {
-    const response = await fetch(url, { method: 'HEAD', 'User-Agent': USER_AGENT });
+    const response = await httpClient.get(url);
     if (!response.ok) errors.push(`must return 2xx but returns ${response.status}`);
   } catch (error) {
     errors.push(`${url} returns error ${error.message}`);
@@ -39,7 +39,7 @@ async function checkPage(url) {
 }
 
 async function fetchSitemapXml(url) {
-  const response = await fetch(url, userAgentHeader);
+  const response = await httpClient.get(url);
   if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
     throw new Error(`HTTP Response Code: ${response.status}, Content-Type: ${response.headers.get('content-type')}`);
   }

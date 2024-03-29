@@ -13,6 +13,7 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-export const OUTPUT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'output');
+export const ROOT_DIR = path.dirname(fileURLToPath(import.meta.url));
+export const OUTPUT_DIR = path.join(ROOT_DIR, 'output');
 export const sanitizeFilename = (url) => url.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
 export const generateFileName = (siteUrl, title) => `${sanitizeFilename(title)}-${sanitizeFilename(siteUrl)}`;

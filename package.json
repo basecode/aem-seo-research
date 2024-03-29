@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "npm run test",
+    "brokenlinks": "node ./assessment/brokenInternalLinks.js",
     "all": "node all-assessments.js",
     "lint": "eslint ."
   },
@@ -32,6 +33,7 @@
     "jsdom": "^24.0.0",
     "json-2-csv": "^5.5.1",
     "node-fetch": "^3.3.2",
+    "node-fetch-cache": "^4.1.0",
     "xml2js": "^0.6.2",
     "zlib": "^1.0.5"
   },

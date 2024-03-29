@@ -10,36 +10,71 @@
  * governing permissions and limitations under the License.
  */
 
-import fetch from 'node-fetch';
-import cheerio from 'cheerio';
-import { USER_AGENT, createAssessment } from './assessment-lib.js';
+import { JSDOM } from 'jsdom';
+import { createAssessment } from './assessment-lib.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
 import FileCache from './libs/file-cache.js';
 import {OUTPUT_DIR} from './file-lib.js';
+import HttpClient from './libs/fetch-client.js';
+
+const httpClient = new HttpClient().getInstance();
+const userSiteUrl = process.argv[2];
+
+const options = {
+  topPages: 200,
+  rateLimitSize: 10,
+  debug: {
+    verbose: false,
+  },
+};
 
 async function fetchInternalLinks(pageUrl) {
   try {
-    const response = await fetch(pageUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch page: ${response.statusText} ${JSON.stringify(response.headers.values())}`);
+    const response = await httpClient.get(pageUrl);
+    if (options.debug.verbose) {
+      console.debug(`Was the call to page ${pageUrl} cached? --> [${httpClient.isCached(response) ? 'Y' : 'N'}]`)
     }
 
-    const html = await response.text();
-    const $ = cheerio.load(html);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch page: ${response.statusText}`);
+    }
 
     const internalLinks = [];
     const baseUrl = new URL(pageUrl);
 
+    const htmlContent = await response.text();
+    const dom = new JSDOM(htmlContent);
+    const { body } = dom.window.document;
+    const allLinks = body.querySelectorAll('a');
+
     // Extract href attributes of anchor tags
-    $('a').each((index, element) => {
-      const href = $(element).attr('href');
-      if (href && href.startsWith('/') && !href.startsWith('//')) {
-        // Convert relative links to absolute links
-        internalLinks.push(new URL(href, baseUrl).toString());
+    allLinks.forEach((element) => {
+      const href = element.href;
+      if (href) {
+        let link = null;
+
+        if (href.startsWith('/') && !href.startsWith('//')) {
+          link = new URL(href, baseUrl).toString();
+
+        } else if (href.startsWith(`//${baseUrl.host}`)) {
+          link = `${baseUrl.protocol}:${href}`;
+
+        } else if (href.startsWith(baseUrl.toString())) {
+          link = href;
+        }
+
+        if (link != null) {
+          internalLinks.push(link);
+        }
       }
     });
 
+    if (options.debug.verbose) {
+      console.log(`Found ${internalLinks.length} internal links for ${pageUrl}`);
+    }
+
     return internalLinks;
+
   } catch (error) {
     console.error(`Error fetching internal links for ${pageUrl}: ${error.message}`);
     return []; // Return an empty array if an error occurs
@@ -48,7 +83,7 @@ async function fetchInternalLinks(pageUrl) {
 
 const checkLink = (async (link) => {
   try {
-    const response = await fetch(link, { method: 'GET', 'User-Agent': USER_AGENT });
+    const response = await httpClient.get(link);
     if (!response.ok) return { link, status: response.status };
   } catch (error) {
     return { link, status: 'Error fetching link' };
@@ -62,45 +97,39 @@ async function checkInternalLinks(pageUrl, internalLinks) {
     .filter((value) => value !== null);
 }
 
-const userSiteUrl = process.argv[2];
-console.log(process.argv);
-
-const options = {
-  topPages: 200,
-  rateLimitSize: 1,
-};
-
 const checkForBrokenInternalLinks = (async (url, assessment) => {
-  console.log(`checking for broken internal links in ${url}`);
-  const internalLinks = await fetchInternalLinks(url);
-  const errors = await checkInternalLinks(url, internalLinks);
-  for (const error of errors) {
-    assessment.addColumn({
-      url,
-      link: error.link,
-      statusCode: error.status,
-    });
-  }
+  options.debug.verbose && console.log(`checking for broken internal links in ${url}`);
+  return fetchInternalLinks(url)
+      .then(internalLinks => checkInternalLinks(url, internalLinks)
+      .then(errors => errors.forEach(e => assessment.addColumn({ url, link: e.link, statusCode: e.status }))));
 });
 
 const brokenInternalLinksAudit = (async (siteUrl, assessment, params) => {
   console.log(`Fetching top ${params.topPages} pages from Ahrefs`);
   const ahrefsClient = new AhrefsAPIClient({ apiKey: process.env.AHREFS_API_KEY }, new FileCache(OUTPUT_DIR));
-  const pages = await ahrefsClient.getTopPages(siteUrl, params.topPages);
+  const topPagesData = await ahrefsClient.getTopPages(siteUrl, params.topPages);
+
+  if (!topPagesData) {
+    console.error('No results found due to top pages not being extracted');
+    return;
+  }
+
+  const { result: { pages } } = topPagesData;
 
   const handleChunkItem = (async (page) => {
-    if (page.url && page.sum_traffic > 0) {
-      return checkForBrokenInternalLinks(page.url, assessment);
-    }
-    return null;
+    return (page.url && page.sum_traffic > 0)
+      ? checkForBrokenInternalLinks(page.url, assessment)
+      : null;
   });
 
-  const chunks = [];
   console.log('Pages to be checked:', pages.length);
+
   const limit = params.rateLimitSize;
+  const chunks = [];
   for (let i = 0; i < Math.ceil(pages.length / limit); i += 1) {
     chunks.push(pages.slice(i * limit, Math.min((i + 1) * limit, pages.length - 1)));
   }
+
   for (const chunk of chunks) {
     // eslint-disable-next-line no-await-in-loop
     await Promise.all(chunk.map(handleChunkItem));
@@ -108,12 +137,8 @@ const brokenInternalLinksAudit = (async (siteUrl, assessment, params) => {
 });
 
 export const brokenInternalLinks = (async () => {
-  const assessment = await createAssessment(userSiteUrl, 'Broken internal links');
-  assessment.setRowHeadersAndDefaults({
-    url: '',
-    link: '',
-    statusCode: '',
-  });
+  const assessment = await createAssessment(userSiteUrl, 'Broken Internal Links');
+  assessment.setRowHeadersAndDefaults({ url: '', link: '', statusCode: '' });
   await brokenInternalLinksAudit(userSiteUrl, assessment, options);
   assessment.end();
   process.exit(0);

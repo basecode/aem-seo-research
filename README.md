@@ -25,4 +25,4 @@ Options:
 
 ## How to trigger brokenInternalLinks assessment
 
-`node ./assessment/brokenInternalLinks.js <baseUrl>`
+`npm run brokenlinks <baseUrl>`
