@@ -15,15 +15,13 @@ import HttpClient from './fetch-client.js';
 
 const AHREFS_API_BASE_URL = 'https://api.ahrefs.com/v3';
 
-const httpClient = new HttpClient().getInstance();
-
 export default class AhrefsAPIClient {
   static createFrom(context) {
     const { AHREFS_API_BASE_URL: apiBaseUrl, AHREFS_API_KEY: apiKey } = context.env;
-    return new AhrefsAPIClient({ apiBaseUrl, apiKey });
+    return new AhrefsAPIClient({ apiBaseUrl, apiKey }, undefined, new HttpClient().getInstance());
   }
 
-  constructor(config, cache) {
+  constructor(config, cache, httpClient) {
     const { apiKey, apiBaseUrl = AHREFS_API_BASE_URL } = config;
 
     if (!isValidUrl(apiBaseUrl)) {
@@ -32,6 +30,7 @@ export default class AhrefsAPIClient {
 
     this.apiBaseUrl = apiBaseUrl;
     this.apiKey = apiKey;
+    this.httpClient = httpClient;
     this.cache = cache || {
       get: () => {},
       put: () => {},
@@ -47,7 +46,7 @@ export default class AhrefsAPIClient {
 
     const fullAuditRef = `${this.apiBaseUrl}${endpoint}${queryString}`;
 
-    const response = await httpClient.get(
+    const response = await this.httpClient.get(
         fullAuditRef,
         {
           headers: {

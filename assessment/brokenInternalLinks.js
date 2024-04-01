@@ -112,7 +112,7 @@ const checkForBrokenInternalLinks = (async (url, assessment) => {
 
 const brokenInternalLinksAudit = (async (siteUrl, assessment, params) => {
   console.log(`Fetching top ${params.topPages} pages from Ahrefs`);
-  const ahrefsClient = new AhrefsAPIClient({ apiKey: process.env.AHREFS_API_KEY }, new FileCache(OUTPUT_DIR));
+  const ahrefsClient = new AhrefsAPIClient({ apiKey: process.env.AHREFS_API_KEY }, new FileCache(OUTPUT_DIR), httpClient);
   //console.log('Top pages for Broken Internal Links assessment:', (await ahrefsClient.getTopPages(siteUrl, params.topPages)).result.pages);
   const topPagesData = await ahrefsClient.getTopPages(siteUrl, params.topPages);
 
