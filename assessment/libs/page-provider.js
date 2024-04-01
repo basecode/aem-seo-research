@@ -10,22 +10,47 @@
  * governing permissions and limitations under the License.
  */
 
+import { composeAuditURL } from '@adobe/spacecat-shared-utils';
+
+export function prodToDevUrl(site, siteAuditUrl, pageUrl) {
+  if (site.getGitHubURL()) {
+    const gitHubUrl = new URL(site.getGitHubURL());
+    const [owner, repository] = gitHubUrl.pathname.split('/').filter(Boolean);
+
+    const url = new URL(pageUrl);
+    url.hostname = `main--${repository}--${owner}.hlx.live`;
+
+    return url.toString();
+  }
+
+  return pageUrl;
+}
+
 export default class PageProvider {
-  constructor({ ahrefsClient, sitemap }, log = console) {
+  constructor({ ahrefsClient, sitemapSrc }, log = console) {
     this.ahrefsClient = ahrefsClient;
-    this.sitemap = sitemap;
+    this.sitemapSrc = sitemapSrc;
     this.log = log;
   }
 
-  async getPagesOfInterest(url, limit = 100) {
-    // TODO: enhance with more logic, sitemap etc.
+  async getPagesOfInterest(site, limit = 100) {
+    const siteAuditUrl = await composeAuditURL(site.getBaseURL());
+
     if (this.ahrefsClient) {
       try {
-        return this.ahrefsClient.getTopPages(url, limit);
+        const response = await this.ahrefsClient.getTopPages(siteAuditUrl, limit);
+        if (response?.result?.pages) {
+          return response?.result?.pages.map((page) => ({
+            prodUrl: page.url,
+            devUrl: prodToDevUrl(site, siteAuditUrl, page.url),
+          }));
+        }
       } catch (error) {
         this.log.error(`Failed to get pages from Ahrefs: ${error.message}`);
       }
     }
+
+    // TODO: enhance with more logic, e.g. get top pages from sitemap src etc.
 
     return Promise.resolve([]);
   }
