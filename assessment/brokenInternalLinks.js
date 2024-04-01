@@ -28,6 +28,8 @@ const options = {
   },
 };
 
+let totalBrokenLinks = 0; // Initialize total broken links counter
+
 async function fetchInternalLinks(pageUrl) {
   try {
     const response = await httpClient.get(pageUrl);
@@ -84,8 +86,12 @@ async function fetchInternalLinks(pageUrl) {
 const checkLink = (async (link) => {
   try {
     const response = await httpClient.get(link);
-    if (!response.ok) return { link, status: response.status };
+    if (!response.ok) {
+      totalBrokenLinks++;
+      return { link, status: response.status };
+    }
   } catch (error) {
+    totalBrokenLinks++;
     return { link, status: 'Error fetching link' };
   }
   return null;
@@ -98,7 +104,7 @@ async function checkInternalLinks(pageUrl, internalLinks) {
 }
 
 const checkForBrokenInternalLinks = (async (url, assessment) => {
-  options.debug.verbose && console.log(`checking for broken internal links in ${url}`);
+  options.debug.verbose || console.log(`Checking for Broken Internal Links in ${url}`);
   return fetchInternalLinks(url)
       .then(internalLinks => checkInternalLinks(url, internalLinks)
       .then(errors => errors.forEach(e => assessment.addColumn({ url, link: e.link, statusCode: e.status }))));
@@ -107,6 +113,7 @@ const checkForBrokenInternalLinks = (async (url, assessment) => {
 const brokenInternalLinksAudit = (async (siteUrl, assessment, params) => {
   console.log(`Fetching top ${params.topPages} pages from Ahrefs`);
   const ahrefsClient = new AhrefsAPIClient({ apiKey: process.env.AHREFS_API_KEY }, new FileCache(OUTPUT_DIR));
+  //console.log('Top pages for Broken Internal Links assessment:', (await ahrefsClient.getTopPages(siteUrl, params.topPages)).result.pages);
   const topPagesData = await ahrefsClient.getTopPages(siteUrl, params.topPages);
 
   if (!topPagesData) {
@@ -116,13 +123,19 @@ const brokenInternalLinksAudit = (async (siteUrl, assessment, params) => {
 
   const { result: { pages } } = topPagesData;
 
+  // Iterate over the top pages in order of traffic
+  for (const page of pages) {
+    // Check for broken internal links for the current page
+    await checkForBrokenInternalLinks(page.url, assessment);
+  }
+
   const handleChunkItem = (async (page) => {
     return (page.url && page.sum_traffic > 0)
       ? checkForBrokenInternalLinks(page.url, assessment)
       : null;
   });
 
-  console.log('Pages to be checked:', pages.length);
+  console.log('Pages checked:', pages.length);
 
   const limit = params.rateLimitSize;
   const chunks = [];
@@ -134,6 +147,7 @@ const brokenInternalLinksAudit = (async (siteUrl, assessment, params) => {
     // eslint-disable-next-line no-await-in-loop
     await Promise.all(chunk.map(handleChunkItem));
   }
+  console.log(`Total broken internal links found: ${totalBrokenLinks}`);
 });
 
 export const brokenInternalLinks = (async () => {

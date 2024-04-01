@@ -44,7 +44,14 @@ class CachedFetchAPI {
      * @returns {Promise<NodeFetchResponse>}
      */
     async get(url, options = {}) {
-        return this.call('GET', url, undefined, options);
+        // console.log(`Fetching ${url}...`);
+        const response = await this.call('GET', url, undefined, options);
+        if (response.isCacheMiss) {
+            console.log(`Fetch made for ${url}. without cache.`);
+        } else {
+            console.log(`- Fetched ${url} from cache.`);
+        }
+        return response;
     }
 
     /**
