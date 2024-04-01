@@ -28,7 +28,6 @@
   "dependencies": {
     "@adobe/spacecat-shared-utils": "1.14.2",
     "axios": "^1.6.7",
-    "cheerio": "^1.0.0-rc.12",
     "dotenv": "^16.4.1",
     "jsdom": "^24.0.0",
     "json-2-csv": "^5.5.1",
