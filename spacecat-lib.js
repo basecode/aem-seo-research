@@ -9,31 +9,24 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
-
-import HttpClient from './assessment/libs/fetch-client.js';
+import fetch from 'node-fetch';
 
 const BASE_URL = 'https://spacecat.experiencecloud.live/api/v1';
 
 const USER_AGENT = 'basecode/seo-research-crawler/1.0';
-
-const httpClient = new HttpClient().getInstance();
-
 export async function makeApiCall(method, url, data = null) {
   try {
-    const response = await httpClient.call(
+    const response = await fetch(`${BASE_URL}${url}`, {
       method,
-      `${BASE_URL}${url}`,
-      data,
-      {
-        headers: {
-          'x-api-key': process.env.SPACECAT_API_KEY,
-          'Content-Type': 'application/json',
-        },
-      });
-
+      headers: {
+        'x-api-key': process.env.SPACECAT_API_KEY,
+        'Content-Type': 'application/json',
+        'User-Agent': USER_AGENT,
+      },
+      ...(data ? { body: JSON.stringify(data) } : {}),
+    });
     if (!response.ok) throw new Error(`API call failed with HTTP status ${response.status}`);
     return await response.json();
-
   } catch (error) {
     console.error('API call failed:', error);
     throw error;

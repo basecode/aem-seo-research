@@ -25,4 +25,4 @@ Options:
 
 ## How to trigger brokenInternalLinks assessment
 
-`npm run brokenlinks <baseUrl>`
+`npm run broken-internal-links <baseUrl>`
