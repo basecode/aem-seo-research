@@ -14,7 +14,7 @@ import { JSDOM } from 'jsdom';
 import { createAssessment } from './assessment-lib.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
 import FileCache from './libs/file-cache.js';
-import {OUTPUT_DIR} from './file-lib.js';
+import { OUTPUT_DIR } from './file-lib.js';
 import HttpClient from './libs/fetch-client.js';
 
 const httpClient = new HttpClient().getInstance();
@@ -104,10 +104,14 @@ async function checkInternalLinks(pageUrl, internalLinks) {
 }
 
 const checkForBrokenInternalLinks = (async (url, assessment) => {
-  options.debug.verbose || console.log(`Checking for Broken Internal Links in ${url}`);
-  return fetchInternalLinks(url)
-      .then(internalLinks => checkInternalLinks(url, internalLinks)
-      .then(errors => errors.forEach(e => assessment.addColumn({ url, link: e.link, statusCode: e.status }))));
+  try {
+    options.debug.verbose || console.log(`Checking for Broken Internal Links in ${url}`);
+    const internalLinks = await fetchInternalLinks(url);
+    const errors = await checkInternalLinks(url, internalLinks);
+    errors.forEach(e => assessment.addColumn({ url, link: e.link, statusCode: e.status }));
+  } catch (error) {
+    console.error(`Error checking for broken internal links in ${url}: ${error.message}`);
+  }
 });
 
 const brokenInternalLinksAudit = (async (siteUrl, assessment, params) => {
