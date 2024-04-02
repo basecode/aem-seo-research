@@ -12,7 +12,6 @@
 
 import { JSDOM } from 'jsdom';
 import { composeAuditURL } from '@adobe/spacecat-shared-utils';
-import process from '@adobe/eslint-config-helix';
 import { createAssessment } from './assessment-lib.js';
 import FileCache from './libs/file-cache.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
@@ -34,15 +33,14 @@ const containsTrackingParams = (url) => url.includes(TRACKING_PARAM);
 const checkForDuplicateUrl = async (url) => {
   try {
     const response = await fetch(url, { method: 'HEAD', 'User-Agent': USER_AGENT });
-    return response.ok;
+    return response.ok && !response.redirected;
   } catch (error) {
-    console.error(`Error checking URL: ${url}`, error);
     return false;
   }
 };
 
-// eslint-disable-next-line consistent-return
-const checkForCanonical = async (url, assessment, source = 'ahrefs', retries = 3, backoff = 300) => {
+// eslint-disable-nex t-line consistent-return
+const checkForCanonical = async (url, sitemapUrls, assessment, retries = 3, backoff = 300) => {
   try {
     const response = await fetch(url);
     const contentType = response.headers.get('content-type');
@@ -64,9 +62,11 @@ const checkForCanonical = async (url, assessment, source = 'ahrefs', retries = 3
         const isAlternativeHtmlDuplicate = await checkForDuplicateUrl(alternativeHtmlUrl);
 
         const issues = [
+          // different from sitemap
+          !sitemapUrls.some((obj) => obj.page === canonicalLink) ? 'canonical is either not present in the sitemap or not identical' : '',
           startsWithWww(url) !== startsWithWww(canonicalLink) ? 'www mismatch' : '',
           endsWithSlash(url) !== endsWithSlash(canonicalLink) ? 'trailing slash mismatch' : '',
-          endsWithHtml(url) !== !endsWithHtml(canonicalLink) ? 'html extension mismatch' : '',
+          endsWithHtml(url) !== endsWithHtml(canonicalLink) ? 'html extension mismatch' : '',
           containsTrackingParams(url) ? 'tracking params present and should be removed' : '',
           isAlternativeWwwDuplicate ? `duplicate URL detected for ${startsWithWww(url) ? 'non-www' : 'www'} version` : '',
           isAlternativeSlashDuplicate ? `duplicate URL detected for ${endsWithSlash(url) ? 'non-slash' : 'slash'} version` : '',
@@ -78,7 +78,6 @@ const checkForCanonical = async (url, assessment, source = 'ahrefs', retries = 3
           const issuesSummary = issues.join(', ');
           assessment.addColumn({
             url,
-            source,
             response: response.status,
             error: issuesSummary,
           });
@@ -86,7 +85,6 @@ const checkForCanonical = async (url, assessment, source = 'ahrefs', retries = 3
       } else {
         assessment.addColumn({
           url,
-          source,
           response: response.status,
           error: 'No canonical link found',
         });
@@ -94,7 +92,6 @@ const checkForCanonical = async (url, assessment, source = 'ahrefs', retries = 3
     } else {
       assessment.addColumn({
         url,
-        source,
         response: response.status,
         error: 'URL does not exist or is not an HTML page',
       });
@@ -105,11 +102,10 @@ const checkForCanonical = async (url, assessment, source = 'ahrefs', retries = 3
       await new Promise((resolve) => {
         setTimeout(resolve, backoff);
       });
-      return checkForCanonical(url, assessment, source, retries - 1, backoff * 2);
+      return checkForCanonical(url, sitemapUrls, assessment, retries - 1, backoff * 2);
     } else {
       assessment.addColumn({
         url,
-        source,
         error: `Error fetching URL ${url}: ${error.message} after ${retries} retries`,
       });
     }
@@ -120,28 +116,31 @@ const canonicalAudit = async (siteUrl, assessment) => {
   const auditUrl = (await composeAuditURL(siteUrl)).replace(/\.html$/, '');
 
   console.log(`Fetching pages on audit url ${auditUrl}, from sitemap ${options.sitemapSrc ? `provided at ${options.sitemapSrc}` : ''}`);
-  const pages = await fetchAllPages(siteUrl, options.sitemapSrc);
+  const sitemapUrls = await fetchAllPages(siteUrl, options.sitemapSrc);
 
   console.log(`Fetching top ${options.topPages} pages from Ahrefs`);
   const ahrefsClient = new AhrefsAPIClient({
     apiKey: process.env.AHREFS_API_KEY,
   }, new FileCache(OUTPUT_DIR));
-  let response = await ahrefsClient.getTopPages(auditUrl, options.topPages);
-  // if ahrefs response is empty, try with www
-  // Make sure all other URLs are now also with www (from sitemap)
-  if (response.result.pages.length === 0) {
-    response = await ahrefsClient.getTopPages(`www.${auditUrl}`, options.topPages);
-  }
 
-  // eslint-disable-next-line max-len
-  const filteredPages = pages.filter((page) => response.result.pages.some((responsePage) => responsePage.url === page.page));
+  const fetchTopPages = async (url) => ahrefsClient.getTopPages(url, options.topPages);
+
+  const responseNoWWW = await fetchTopPages(auditUrl.replace(/^www\./, ''));
+  const responseWithWWW = auditUrl.startsWith('www.') ? responseNoWWW : await fetchTopPages(`www.${auditUrl}`);
+
+  const sumTraffic = (pages) => pages.reduce((acc, page) => acc + page.sum_traffic, 0);
+  const totalTrafficNoWWW = sumTraffic(responseNoWWW.result.pages);
+  const totalTrafficWithWWW = sumTraffic(responseWithWWW.result.pages);
+  const response = totalTrafficNoWWW > totalTrafficWithWWW ? responseNoWWW : responseWithWWW;
 
   // eslint-disable-next-line array-callback-return,consistent-return
-  return Promise.all(filteredPages.map((page) => {
-    if (page.page) {
-      return checkForCanonical(page.page, assessment, 'sitemap');
-    }
-  }));
+  return Promise.all(
+    response.result.pages.filter((
+      page,
+    ) => page.url).map((
+      page,
+    ) => checkForCanonical(page.url, sitemapUrls, assessment)),
+  );
 };
 
 export const canonical = (async () => {
@@ -166,10 +165,16 @@ export const canonical = (async () => {
   const assessment = await createAssessment(userSiteUrl, 'Canonical');
   assessment.setRowHeadersAndDefaults({
     url: '',
-    source: '',
     error: '',
   });
   await canonicalAudit(userSiteUrl, assessment);
+  if (assessment.getRowSize() === 0) {
+    console.log('No issues found');
+    assessment.addColumn({
+      url: userSiteUrl,
+      error: 'No issues found',
+    });
+  }
   assessment.end();
   process.exit(0);
 })();

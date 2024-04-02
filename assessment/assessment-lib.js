@@ -48,6 +48,9 @@ export const createAssessment = async (userSite, userTitle) => {
       const merge = { ...rowHeadersAndDefaults, ...column };
       csvContent.push(merge);
     },
+    getRowSize() {
+      return csvContent.length;
+    },
     end() {
       console.log(`Processing time in Minutes: ${hrtimeToSeconds(process.hrtime(TOTAL_START_HRTIME)) / 60}`);
       const csv = json2csv(csvContent);
