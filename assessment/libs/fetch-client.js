@@ -20,16 +20,17 @@ class CachedFetchAPI {
     /**
      * build a NodeFetchCache wrapper and pass a TTL and a cache directory.
      * no need to add overhead by handling custom path renames or HAR responses, support is OOTB
+     * @param {Object} config - Configuration object
+     * @param {string} config.cacheDirectory - Path to the cache directory
+     * @param {number} config.ttl - Time to live for cache in milliseconds
      */
-    constructor() {
+
+    constructor(config) {
         this.fetch = NodeFetchCache.create({
             shouldCacheResponse: (response) => response.ok,
             cache: new FileSystemCache({
-                cacheDirectory: path.join(ROOT_DIR, '.http_cache'),
-                // Time to live. How long (in ms) responses remain cached before being
-                // automatically ejected. If undefined, responses are never
-                // automatically ejected from the cache.
-                ttl: 3_600_000, // 1 hour
+                cacheDirectory: config.cacheDirectory,
+                ttl: config.ttl,
             }),
         })
     }
@@ -92,7 +93,10 @@ export default class HttpClient {
 
     constructor() {
         if (!HttpClient.instance) {
-            HttpClient.instance = new CachedFetchAPI();
+            HttpClient.instance = new CachedFetchAPI({
+                cacheDirectory: path.join(ROOT_DIR, '.http_cache'),
+                ttl: 3_600_000, // 1 hour
+            });
         }
     }
 
