@@ -23,7 +23,7 @@ let totalBrokenLinks = 0;
 let pagesChecked = 0;
 
 const options = {
-  topPages: 150,
+  topPages: 2000,
   rateLimitSize: 10
 };
 
@@ -38,7 +38,7 @@ async function fetchInternalLinks(pageUrl) {
 
   const htmlContent = await response.text();
   const dom = new JSDOM(htmlContent);
-  const {body} = dom.window.document;
+  const { body } = dom.window.document;
   const allLinks = body.querySelectorAll('a');
 
   // Extract href attributes of anchor tags
@@ -83,7 +83,7 @@ async function checkForBrokenInternalLinks(url, assessment, sum_traffic) {
   const errors = await checkInternalLinks(url, internalLinks);
   errors.forEach(e => {
     totalBrokenLinks++;
-    assessment.addColumn({ url, link: e.link, statusCode: e.status, sum_traffic });
+    assessment.addColumn({ url, broken_link: e.link, statusCode: e.status, sum_traffic });
   });
 }
 async function brokenInternalLinksAudit(siteUrl, assessment, params) {
@@ -123,7 +123,7 @@ async function brokenInternalLinksAudit(siteUrl, assessment, params) {
 
 export const brokenInternalLinks = (async () => {
   const assessment = await createAssessment(userSiteUrl, 'Broken Internal Links');
-  assessment.setRowHeadersAndDefaults({ url: '', link: '', statusCode: '', sum_traffic: '' });
+  assessment.setRowHeadersAndDefaults({ url: '', broken_link: '', statusCode: '', sum_traffic: '' });
   await brokenInternalLinksAudit(userSiteUrl, assessment, options);
   assessment.end();
   process.exit(0);

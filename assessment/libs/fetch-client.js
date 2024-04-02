@@ -22,7 +22,8 @@ class CachedFetchAPI {
      * no need to add overhead by handling custom path renames or HAR responses, support is OOTB
      * @param {Object} config - Configuration object
      * @param {string} config.cacheDirectory - Path to the cache directory
-     * @param {number} config.ttl - Time to live for cache in milliseconds
+     * @param {number} config.ttl - Time to live for cache in milliseconds set as undefined to cache indefinitely
+     *
      */
 
     constructor(config) {
@@ -68,7 +69,7 @@ class CachedFetchAPI {
     }
 
     async call(method, url, data = undefined, options = {}) {
-        return this.fetch(url, {
+        const response = await this.fetch(url, {
             ...options,
             method,
             headers: {
@@ -77,7 +78,14 @@ class CachedFetchAPI {
             },
             ...(data ? { body: JSON.stringify(data) } : {}),
         });
+
+        if (response.isCacheMiss) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+        return response;
     }
+
 
     /**
      * Wrapper over Node Fetch Cache isCacheMiss
@@ -95,7 +103,6 @@ export default class HttpClient {
         if (!HttpClient.instance) {
             HttpClient.instance = new CachedFetchAPI({
                 cacheDirectory: path.join(ROOT_DIR, '.http_cache'),
-                ttl: 3_600_000, // 1 hour
             });
         }
     }
