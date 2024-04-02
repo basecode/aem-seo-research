@@ -40,7 +40,7 @@ export const createAssessment = async (siteUrl, userTitle) => {
   );
   const site = await spaceCatSdk.getSite(siteUrl);
   const siteAuditUrl = await composeAuditURL(site.getBaseURL());
-  const FILE_PATH = path.join(OUTPUT_DIR, `${generateFileName(siteAuditUrl, userTitle)}-${Date.now()}.csv`);
+  const reportFilePath = path.join(OUTPUT_DIR, `${generateFileName(siteAuditUrl, userTitle)}-${Date.now()}.csv`);
   console.log(`${userTitle}: Assessment for ${siteAuditUrl}`);
 
   let rowHeadersAndDefaults;
@@ -56,7 +56,7 @@ export const createAssessment = async (siteUrl, userTitle) => {
     end() {
       console.log(`Processing time in Minutes: ${hrtimeToSeconds(process.hrtime(TOTAL_START_HRTIME)) / 60}`);
       const csv = json2csv(csvContent);
-      fs.writeFileSync(FILE_PATH, csv);
+      fs.writeFileSync(reportFilePath, csv);
     },
   };
 };
