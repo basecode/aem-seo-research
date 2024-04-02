@@ -25,16 +25,15 @@ describe('PageCache', () => {
     headers: { 'Content-Type': 'text/html' },
     body: 'Test Page',
   };
-  let sandbox;
+  const sandbox = sinon.createSandbox();
   let pageCache;
 
   beforeEach(() => {
-    sandbox = sinon.createSandbox();
     pageCache = new PageCache('test-page-cache');
   });
 
   afterEach(() => {
-    sandbox.restore();
+    sinon.restore();
   });
 
   describe('put', () => {

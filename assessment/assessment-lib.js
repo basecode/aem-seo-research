@@ -39,19 +39,29 @@ export const createAssessment = async (siteUrl, userTitle) => {
     { apiBaseUrl: SPACECAT_API_BASE_URL, apiKey: process.env.SPACECAT_API_KEY },
   );
   const site = await spaceCatSdk.getSite(siteUrl);
-  const siteAuditUrl = await composeAuditURL(site.getBaseURL());
+  const siteAuditUrl = await composeAuditURL(site.baseURL);
   const reportFilePath = path.join(OUTPUT_DIR, `${generateFileName(siteAuditUrl, userTitle)}-${Date.now()}.csv`);
   console.log(`${userTitle}: Assessment for ${siteAuditUrl}`);
 
   let rowHeadersAndDefaults;
 
   return {
+    getSite() {
+      return site;
+    },
+    getSiteAuditUrl() {
+      return siteAuditUrl;
+    },
     setRowHeadersAndDefaults(arg) {
       rowHeadersAndDefaults = arg;
     },
+    // TODO: should be addRow actually...
     addColumn(column) {
       const merge = { ...rowHeadersAndDefaults, ...column };
       csvContent.push(merge);
+    },
+    getRows() {
+      return csvContent;
     },
     end() {
       console.log(`Processing time in Minutes: ${hrtimeToSeconds(process.hrtime(TOTAL_START_HRTIME)) / 60}`);

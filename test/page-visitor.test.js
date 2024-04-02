@@ -25,6 +25,7 @@ chai.use(sinonChai);
 chai.use(chaiAsPromised);
 
 describe('PageVisitor', () => {
+  const sandbox = sinon.createSandbox();
   const pageDetails = {
     status: 200,
     body: 'Test Page',
@@ -34,18 +35,16 @@ describe('PageVisitor', () => {
   let pageVisitor;
   let runner;
   let cache;
-  let sandbox;
 
   beforeEach(() => {
-    sandbox = sinon.createSandbox();
     runner = new RequestRunner(0, 2);
     cache = new PageCache('test-page-cache');
     pageVisitor = new PageVisitor(runner, cache);
   });
 
   afterEach(() => {
-    sandbox.restore();
     nock.cleanAll();
+    sinon.restore();
   });
 
   describe('visit', () => {

@@ -13,8 +13,8 @@
 import { composeAuditURL } from '@adobe/spacecat-shared-utils';
 
 export function prodToDevUrl(site, siteAuditUrl, pageUrl) {
-  if (site.getGitHubURL()) {
-    const gitHubUrl = new URL(site.getGitHubURL());
+  if (site.gitHubURL) {
+    const gitHubUrl = new URL(site.gitHubURL);
     const [owner, repository] = gitHubUrl.pathname.split('/').filter(Boolean);
 
     const url = new URL(pageUrl);
@@ -34,7 +34,7 @@ export default class PageProvider {
   }
 
   async getPagesOfInterest(site, limit = 100) {
-    const siteAuditUrl = await composeAuditURL(site.getBaseURL());
+    const siteAuditUrl = await composeAuditURL(site.baseURL);
 
     if (this.ahrefsClient) {
       try {

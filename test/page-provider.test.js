@@ -23,20 +23,18 @@ chai.use(sinonChai);
 chai.use(chaiAsPromised);
 
 describe('PageProvider', () => {
-  let sandbox;
+  const sandbox = sinon.createSandbox();
   let ahrefsClientStub;
   let site;
 
   beforeEach(() => {
-    sandbox = sinon.createSandbox();
     ahrefsClientStub = {
       getTopPages: sandbox.stub(),
     };
     site = {
-      getBaseURL: sandbox.stub(),
-      getGitHubURL: sandbox.stub(),
+      baseURL: 'https://space.dog',
+      gitHubURL: undefined,
     };
-    site.getBaseURL.returns('https://space.dog');
     nock('https://space.dog')
       .get('/')
       .reply(301, undefined, { Location: 'https://www.space.dog/' });
@@ -59,7 +57,7 @@ describe('PageProvider', () => {
 
     it('should return pages of interest from ahrefs with prod and dev url from gitHubURL if set', async () => {
       ahrefsClientStub.getTopPages.resolves({ result: { pages: [{ url: 'https://www.space.dog/how-to-chase-a-cat' }] } });
-      site.getGitHubURL.returns('https://github.com/hlxsites/spacedog');
+      site.gitHubURL = 'https://github.com/hlxsites/spacedog';
 
       const pageProvider = new PageProvider({ ahrefsClient: ahrefsClientStub });
       const result = await pageProvider.getPagesOfInterest(site);
@@ -71,7 +69,7 @@ describe('PageProvider', () => {
 
     it('should return pages of interest from ahrefs with prod and dev url the same if gitHubURL is not set', async () => {
       ahrefsClientStub.getTopPages.resolves({ result: { pages: [{ url: 'https://www.space.dog/how-to-chase-a-cat' }] } });
-      site.getGitHubURL.returns(undefined);
+      site.gitHubURL = undefined;
 
       const pageProvider = new PageProvider({ ahrefsClient: ahrefsClientStub });
       const result = await pageProvider.getPagesOfInterest(site);
