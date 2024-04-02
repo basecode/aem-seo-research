@@ -250,9 +250,9 @@ export async function fetchSitemapsFromSource(sources, origin) {
 
 export async function fetchAllPages(url, sitemapSrc) {
   if (sitemapSrc) {
-    const { domain } = extractDomainAndProtocol(url);
+    const { protocol, domain } = extractDomainAndProtocol(url);
     return fetchSitemapsFromSource([
-      new URL(sitemapSrc, domain).toString(), 'user provided',
+      new URL(sitemapSrc, `${protocol}://${domain}`).toString(), 'user provided',
     ]);
   }
   const sitemaps = await findSitemap(url);

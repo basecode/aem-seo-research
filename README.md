@@ -22,5 +22,5 @@ Retrieve the values from [Vault](https://vault-amer.adobe.net/ui/vault/secrets/a
 `npm run canonical <baseUrl> [options]`
 
 Options:
-- `--top-pages=<number>` - Run audit for top pages (default 200), based on estimated organic traffic
-- `--sitemap=<sitemapUrl>` - Specify a specific sitemap location (default fetched from robots.txt or /sitemap.xml), especially useful for page in development as they are not listed yet in the robots.txt or sitemap_index.xml
+- `top-pages=<number>` - Run audit for top pages (default 200), based on estimated organic traffic
+- `sitemap=<sitemapUrl>` - Specify a specific sitemap location (default fetched from robots.txt or /sitemap.xml), especially useful for page in development as they are not listed yet in the robots.txt or sitemap_index.xml

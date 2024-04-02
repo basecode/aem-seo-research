@@ -11,6 +11,8 @@
  */
 
 import { JSDOM } from 'jsdom';
+import { composeAuditURL } from '@adobe/spacecat-shared-utils';
+import process from '@adobe/eslint-config-helix';
 import { createAssessment } from './assessment-lib.js';
 import FileCache from './libs/file-cache.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
@@ -21,7 +23,7 @@ const TRACKING_PARAM = '?utm';
 const userSiteUrl = process.argv[2];
 
 const options = {
-  topPages: undefined,
+  topPages: 200,
   sitemapSrc: undefined,
 };
 
@@ -114,36 +116,42 @@ const checkForCanonical = async (url, assessment, source = 'ahrefs', retries = 3
   }
 };
 
+async function filterPages(pages, response) {
+  const urls = new Set(response.result.pages.map((page) => page.url));
+  return pages.filter((page) => urls.has(page.page));
+}
+
 const canonicalAudit = async (siteUrl, assessment) => {
-  if (options.topPages) {
-    // if top pages are specified, get pages from ahrefs
-    // default, get pages from sitemap
-    console.log(`Fetching top ${options.topPages} pages from Ahrefs`);
-    const ahrefsClient = new AhrefsAPIClient({
-      apiKey: process.env.AHREFS_API_KEY,
-    }, new FileCache(OUTPUT_DIR));
-    const response = await ahrefsClient.getTopPages(siteUrl, options.topPages);
-    // eslint-disable-next-line consistent-return,array-callback-return
-    return Promise.all(response?.result?.pages.map((page) => {
-      if (page.url && page.sum_traffic > 0) {
-        return checkForCanonical(page.url, assessment);
-      }
-    }));
-  } else {
-    console.log(`Fetching pages from sitemap ${options.sitemapSrc ? `provided at ${options.sitemapSrc}` : ''}`);
-    const pages = await fetchAllPages(siteUrl, options.sitemapSrc);
-    // eslint-disable-next-line array-callback-return,consistent-return
-    return Promise.all(pages.map((page) => {
-      if (page.page) {
-        return checkForCanonical(page.page, assessment, 'sitemap');
-      }
-    }));
+  const auditUrl = (await composeAuditURL(siteUrl)).replace(/\.html$/, '');
+
+  console.log(`Fetching pages on audit url ${auditUrl}, from sitemap ${options.sitemapSrc ? `provided at ${options.sitemapSrc}` : ''}`);
+  const pages = await fetchAllPages(siteUrl, options.sitemapSrc);
+
+  console.log(`Fetching top ${options.topPages} pages from Ahrefs`);
+  const ahrefsClient = new AhrefsAPIClient({
+    apiKey: process.env.AHREFS_API_KEY,
+  }, new FileCache(OUTPUT_DIR));
+  let response = await ahrefsClient.getTopPages(auditUrl, options.topPages);
+  // if ahrefs response is empty, try with www
+  // Make sure all other URLs are now also with www (from sitemap)
+  if (response.result.pages.length === 0) {
+    response = await ahrefsClient.getTopPages(`www.${auditUrl}`, options.topPages);
   }
+
+  // eslint-disable-next-line max-len
+  const filteredPages = pages.filter((page) => response.result.pages.some((responsePage) => responsePage.url === page.page));
+
+  // eslint-disable-next-line array-callback-return,consistent-return
+  return Promise.all(filteredPages.map((page) => {
+    if (page.page) {
+      return checkForCanonical(page.page, assessment, 'sitemap');
+    }
+  }));
 };
 
 export const canonical = (async () => {
   process.argv.slice(3).forEach((arg) => {
-    if (arg.startsWith('--top-pages')) {
+    if (arg.startsWith('top-pages=')) {
       const [, value] = arg.split('=');
       const number = parseInt(value, 10);
       if (Number.isNaN(number) || number <= 0) {
@@ -152,7 +160,7 @@ export const canonical = (async () => {
       } else {
         options.topPages = number;
       }
-    } else if (arg.startsWith('--sitemap')) {
+    } else if (arg.startsWith('sitemap=')) {
       const [, value] = arg.split('=');
       options.sitemapSrc = value;
     } else {
@@ -166,7 +174,7 @@ export const canonical = (async () => {
     source: '',
     error: '',
   });
-  await canonicalAudit(userSiteUrl, assessment, options);
+  await canonicalAudit(userSiteUrl, assessment);
   assessment.end();
   process.exit(0);
 })();

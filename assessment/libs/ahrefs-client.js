@@ -107,6 +107,10 @@ export default class AhrefsAPIClient {
 
     const MONTH_IN_MS = 30 * 24 * 60 * 60 * 1000;
 
+    const filter = {
+      field: 'sum_traffic', is: ['gt', 0],
+    };
+
     const queryParams = {
       select: [
         'url',
@@ -119,6 +123,7 @@ export default class AhrefsAPIClient {
       date: new Date().toISOString().split('T')[0],
       date_compared: new Date(Date.now() - MONTH_IN_MS).toISOString().split('T')[0],
       output: 'json',
+      where: JSON.stringify(filter),
     };
 
     const response = await this.sendRequest('/site-explorer/top-pages', queryParams);
