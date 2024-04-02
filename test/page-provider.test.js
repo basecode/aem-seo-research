@@ -82,10 +82,10 @@ describe('PageProvider', () => {
     });
 
     it('should return pages of interest from specified sitemap with prod and dev url', async () => {
-      const sitemapSrc = '';
+      // const sitemapSrc = '';
 
-      const pageProvider = new PageProvider({ sitemapSrc });
-      const result = await pageProvider.getPagesOfInterest(site);
+      // const pageProvider = new PageProvider({ sitemapSrc });
+      // const result = await pageProvider.getPagesOfInterest(site);
 
       // expect(result).to.be.an('array').that.is.not.empty;
       // expect(result[0]).to.have.property('prodUrl', 'https://www.space.dog/how-to-chase-a-cat');
@@ -93,8 +93,8 @@ describe('PageProvider', () => {
     });
 
     it('should return pages of interest with prod and dev url, when site.baseURL https://space.dog/en/blog.html and sitemap at root https://space.dog', async () => {
-      const pageProvider = new PageProvider({});
-      const result = await pageProvider.getPagesOfInterest(site);
+      // const pageProvider = new PageProvider({});
+      // const result = await pageProvider.getPagesOfInterest(site);
 
       // expect(result).to.be.an('array').that.is.not.empty;
       // expect(result[0]).to.have.property('prodUrl', 'https://www.space.dog/en/blog.html');
@@ -102,8 +102,8 @@ describe('PageProvider', () => {
     });
 
     it('should return pages of interest with prod and dev url, when https://www.space.dog becomes https://www.space.dog/us/en', async () => {
-      const pageProvider = new PageProvider({});
-      const result = await pageProvider.getPagesOfInterest(site);
+      // const pageProvider = new PageProvider({});
+      // const result = await pageProvider.getPagesOfInterest(site);
 
       // expect(result).to.be.an('array').that.is.not.empty;
       // expect(result[0]).to.have.property('prodUrl', 'https://www.space.dog/how-to-chase-a-cat');

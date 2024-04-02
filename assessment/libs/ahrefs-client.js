@@ -120,17 +120,24 @@ export default class AhrefsAPIClient {
 
     const MONTH_IN_MS = 30 * 24 * 60 * 60 * 1000;
 
+    const filter = {
+      and: [
+        { field: 'sum_traffic', is: ['gt', 0] },
+      ],
+    };
+
     const queryParams = {
       select: [
         'url',
         'sum_traffic',
       ].join(','),
-      limit,
+      where: JSON.stringify(filter),
       order_by: 'sum_traffic_merged',
-      target: url,
-      mode: 'prefix',
       date: new Date().toISOString().split('T')[0],
       date_compared: new Date(Date.now() - MONTH_IN_MS).toISOString().split('T')[0],
+      target: url,
+      limit,
+      mode: 'prefix',
       output: 'json',
     };
 
@@ -168,12 +175,12 @@ export default class AhrefsAPIClient {
         'url_from',
         'url_to',
       ].join(','),
-      limit: 50,
-      mode: 'prefix',
+      where: JSON.stringify(filter),
       order_by: 'domain_rating_source:desc,traffic_domain:desc',
       target: url,
+      limit: 50,
+      mode: 'prefix',
       output: 'json',
-      where: JSON.stringify(filter),
     };
 
     const response = await this.sendRequest(`/site-explorer/${ALL_BACKLINKS}`, queryParams);
