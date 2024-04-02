@@ -178,7 +178,7 @@ export default class AhrefsAPIClient {
       where: JSON.stringify(filter),
       order_by: 'domain_rating_source:desc,traffic_domain:desc',
       target: url,
-      limit: 50,
+      limit,
       mode: 'prefix',
       output: 'json',
     };

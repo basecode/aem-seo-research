@@ -10,12 +10,15 @@
  * governing permissions and limitations under the License.
  */
 
+import dotenv from 'dotenv';
 import fetch from 'node-fetch';
 import { createAssessment } from './assessment-lib.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
 import AhrefsCache from './libs/ahrefs-cache.js';
 import { OUTPUT_DIR } from './file-lib.js';
 import { prodToDevUrl } from './libs/page-provider.js';
+
+dotenv.config();
 
 // TODO: reusable fragment copied from https://github.com/adobe/spacecat-audit-worker/blob/main/src/backlinks/handler.js#L21-L38
 async function filterOutValidBacklinks(backlinks, log) {
@@ -48,7 +51,7 @@ export const brokenBacklinksAudit = async (assessment, userSiteUrl, options, log
   );
 
   const topBacklinksResponse = await ahrefsClient
-    .getBacklinks(siteAuditUrl, options.topPages);
+    .getBacklinks(siteAuditUrl, options.topBacklinks);
 
   if (!topBacklinksResponse?.result?.backlinks
     || topBacklinksResponse?.result?.backlinks.length === 0) {

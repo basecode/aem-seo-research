@@ -11,8 +11,10 @@
  */
 import { canonical } from './assessment/canonical.js';
 import { sitemap } from './assessment/sitemap.js';
+import { brokenBacklinks } from './assessment/broken-backlinks.js';
 
 (async () => {
   await sitemap;
   await canonical;
+  await brokenBacklinks;
 })();
