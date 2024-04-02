@@ -116,11 +116,6 @@ const checkForCanonical = async (url, assessment, source = 'ahrefs', retries = 3
   }
 };
 
-async function filterPages(pages, response) {
-  const urls = new Set(response.result.pages.map((page) => page.url));
-  return pages.filter((page) => urls.has(page.page));
-}
-
 const canonicalAudit = async (siteUrl, assessment) => {
   const auditUrl = (await composeAuditURL(siteUrl)).replace(/\.html$/, '');
 
