@@ -13,7 +13,8 @@
 import { JSDOM } from 'jsdom';
 import { composeAuditURL } from '@adobe/spacecat-shared-utils';
 import { createAssessment } from './assessment-lib.js';
-import FileCache from './libs/file-cache.js';
+import { fetchSitemapsFromBaseUrl } from './sitemap.js';
+import AhrefsCache from './libs/ahrefs-cache.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
 import { OUTPUT_DIR } from './file-lib.js';
 import { fetchAllPages, USER_AGENT } from './utils/support.js';
@@ -119,9 +120,12 @@ const canonicalAudit = async (siteUrl, assessment) => {
   const sitemapUrls = await fetchAllPages(siteUrl, options.sitemapSrc);
 
   console.log(`Fetching top ${options.topPages} pages from Ahrefs`);
-  const ahrefsClient = new AhrefsAPIClient({
+  const ahrefsClient = new AhrefsAPIClient(
+      {
     apiKey: process.env.AHREFS_API_KEY,
-  }, new FileCache(OUTPUT_DIR));
+  },
+      new AhrefsCache(OUTPUT_DIR),
+    );
 
   const fetchTopPages = async (url) => ahrefsClient.getTopPages(url, options.topPages);
 
@@ -168,7 +172,7 @@ export const canonical = (async () => {
     error: '',
   });
   await canonicalAudit(userSiteUrl, assessment);
-  if (assessment.getRowSize() === 0) {
+  if (assessment.getRows().length === 0) {
     console.log('No issues found');
     assessment.addColumn({
       url: userSiteUrl,
