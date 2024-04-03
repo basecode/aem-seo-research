@@ -14,6 +14,8 @@ import { isValidUrl } from '@adobe/spacecat-shared-utils';
 
 const AHREFS_API_BASE_URL = 'https://api.ahrefs.com/v3';
 
+const getLimit = (limit, upperLimit) => Math.min(limit, upperLimit);
+
 export default class AhrefsAPIClient {
   static createFrom(context) {
     const { AHREFS_API_BASE_URL: apiBaseUrl, AHREFS_API_KEY: apiKey } = context.env;
@@ -30,8 +32,8 @@ export default class AhrefsAPIClient {
     this.apiBaseUrl = apiBaseUrl;
     this.apiKey = apiKey;
     this.cache = cache || {
-      get: () => {},
-      put: () => {},
+      get: () => undefined,
+      put: () => undefined,
     };
     this.log = log;
   }
@@ -73,7 +75,7 @@ export default class AhrefsAPIClient {
     }
   }
 
-  async getBrokenBacklinks(url) {
+  async getBrokenBacklinks(url, limit = 50) {
     const BROKEN_BACKLINKS = 'broken-backlinks';
 
     this.log.info(`Calling Ahrefs API ${BROKEN_BACKLINKS} for url ${url}`);
@@ -94,7 +96,7 @@ export default class AhrefsAPIClient {
         'url_from',
         'url_to',
       ].join(','),
-      limit: 50,
+      limit: getLimit(limit, 100),
       mode: 'prefix',
       order_by: 'domain_rating_source:desc,traffic_domain:desc',
       target: url,
@@ -105,7 +107,7 @@ export default class AhrefsAPIClient {
     return this.sendRequest(`/site-explorer/${BROKEN_BACKLINKS}`, queryParams);
   }
 
-  async getTopPages(url, limit = 100) {
+  async getTopPages(url, limit = 200) {
     const TOP_PAGES = 'top-pages';
     this.log.info(`Calling Ahrefs API ${TOP_PAGES} for url ${url}`);
 
@@ -136,7 +138,7 @@ export default class AhrefsAPIClient {
       date: new Date().toISOString().split('T')[0],
       date_compared: new Date(Date.now() - MONTH_IN_MS).toISOString().split('T')[0],
       target: url,
-      limit,
+      limit: getLimit(limit, 2000),
       mode: 'prefix',
       output: 'json',
     };
@@ -178,7 +180,7 @@ export default class AhrefsAPIClient {
       where: JSON.stringify(filter),
       order_by: 'domain_rating_source:desc,traffic_domain:desc',
       target: url,
-      limit,
+      limit: getLimit(limit, 1000),
       mode: 'prefix',
       output: 'json',
     };
