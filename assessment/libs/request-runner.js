@@ -16,12 +16,19 @@
 export default class RequestRunner {
   /**
    * Creates a new instance of RequestRunner.
+   * @param {Object} options - The options for the RequestRunner.
    * @param {number} sleepTime - The sleep time in milliseconds between retries.
    * @param {number} backoffFactor - The backoff factor for exponential backoff.
+   * @param {number} maxRetries - The maximum number of retries.
+   * @param {Object} log - The logger object.
    */
-  constructor(sleepTime = 1000, backoffFactor = 2, log = console) {
+  constructor(
+    { sleepTime = 1000, backoffFactor = 2, maxRetries = 10 },
+    log = console,
+  ) {
     this.sleepTime = sleepTime;
     this.backoffFactor = backoffFactor;
+    this.maxRetries = maxRetries;
     this.log = log;
   }
 
@@ -58,7 +65,7 @@ export default class RequestRunner {
           } else {
             break;
           }
-        } while (true);
+        } while (retry <= this.maxRetries);
 
         responses.push(response);
 
