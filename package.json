@@ -7,7 +7,7 @@
   "scripts": {
     "lint": "eslint . --fix",
     "test": "mocha --reporter spec",
-    "all": "node all-assessments.js",
+    "all": "node all-assessments.js"
   },
   "repository": {
     "type": "git",
