@@ -13,13 +13,12 @@
 import { JSDOM } from 'jsdom';
 import { composeAuditURL } from '@adobe/spacecat-shared-utils';
 import { createAssessment } from './assessment-lib.js';
-import { fetchSitemapsFromBaseUrl } from './sitemap.js';
 import AhrefsCache from './libs/ahrefs-cache.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
 import { OUTPUT_DIR } from './file-lib.js';
 import { fetchAllPages, USER_AGENT } from './utils/support.js';
 
-const TRACKING_PARAM = '?utm';
+const PARAMS = '?';
 const userSiteUrl = process.argv[2];
 
 const options = {
@@ -30,7 +29,7 @@ const options = {
 const startsWithWww = (url) => url.startsWith('https://www.');
 const endsWithSlash = (url) => url.endsWith('/');
 const endsWithHtml = (url) => url.endsWith('.html');
-const containsTrackingParams = (url) => url.includes(TRACKING_PARAM);
+const containsTrackingParams = (url) => url.includes(PARAMS);
 const checkForDuplicateUrl = async (url) => {
   try {
     const response = await fetch(url, { method: 'HEAD', 'User-Agent': USER_AGENT });
@@ -40,7 +39,7 @@ const checkForDuplicateUrl = async (url) => {
   }
 };
 
-// eslint-disable-nex t-line consistent-return
+// eslint-disable-next-line consistent-return
 const checkForCanonical = async (url, sitemapUrls, assessment, retries = 3, backoff = 300) => {
   try {
     const response = await fetch(url);
@@ -61,6 +60,9 @@ const checkForCanonical = async (url, sitemapUrls, assessment, retries = 3, back
         const isAlternativeWwwDuplicate = await checkForDuplicateUrl(alternativeWwwUrl);
         const isAlternativeSlashDuplicate = await checkForDuplicateUrl(alternativeSlashUrl);
         const isAlternativeHtmlDuplicate = await checkForDuplicateUrl(alternativeHtmlUrl);
+        // TODO: if there are the following duplicates,
+        //  visit them and make sure the canonical is the same among all of them
+        //  (point to one page only to avoid duplicate)
 
         const issues = [
           // different from sitemap
@@ -68,7 +70,7 @@ const checkForCanonical = async (url, sitemapUrls, assessment, retries = 3, back
           startsWithWww(url) !== startsWithWww(canonicalLink) ? 'www mismatch' : '',
           endsWithSlash(url) !== endsWithSlash(canonicalLink) ? 'trailing slash mismatch' : '',
           endsWithHtml(url) !== endsWithHtml(canonicalLink) ? 'html extension mismatch' : '',
-          containsTrackingParams(url) ? 'tracking params present and should be removed' : '',
+          containsTrackingParams(url) ? 'url params present and should be removed' : '',
           isAlternativeWwwDuplicate ? `duplicate URL detected for ${startsWithWww(url) ? 'non-www' : 'www'} version` : '',
           isAlternativeSlashDuplicate ? `duplicate URL detected for ${endsWithSlash(url) ? 'non-slash' : 'slash'} version` : '',
           isAlternativeHtmlDuplicate ? `duplicate URL detected for ${endsWithHtml(url) ? 'non-html' : 'html'} version` : '',
@@ -121,11 +123,11 @@ const canonicalAudit = async (siteUrl, assessment) => {
 
   console.log(`Fetching top ${options.topPages} pages from Ahrefs`);
   const ahrefsClient = new AhrefsAPIClient(
-      {
-    apiKey: process.env.AHREFS_API_KEY,
-  },
-      new AhrefsCache(OUTPUT_DIR),
-    );
+    {
+      apiKey: process.env.AHREFS_API_KEY,
+    },
+    new AhrefsCache(OUTPUT_DIR),
+  );
 
   const fetchTopPages = async (url) => ahrefsClient.getTopPages(url, options.topPages);
 

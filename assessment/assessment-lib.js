@@ -17,7 +17,6 @@ import { composeAuditURL } from '@adobe/spacecat-shared-utils';
 import SpaceCatSdk from 'spacecat-sdk/src/sdk.js';
 import { generateFileName, OUTPUT_DIR } from './file-lib.js';
 import { userAgentHeader } from './utils/support.js';
-import { getSiteByBaseUrl } from '../spacecat-lib.js';
 
 export const USER_AGENT = 'basecode/seo-research-crawler/1.0';
 export const SPACECAT_API_BASE_URL = 'https://spacecat.experiencecloud.live/api/v1';
