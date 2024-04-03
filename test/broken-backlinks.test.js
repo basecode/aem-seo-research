@@ -55,10 +55,11 @@ describe('brokenBacklinksAudit', () => {
     expect(assessment.getRows()).to.be.empty;
   });
 
-  it('should handle no top pages found', async () => {
+  // TODO: re-enable when filtering by top pages is re-enabled
+  xit('should handle no top pages found', async () => {
     const assessment = await createAssessment('https://space.dog', 'Broken Backlinks');
 
-    getBacklinksStub.resolves({ result: { backlinks: [{}] } });
+    getBacklinksStub.resolves({ result: { backlinks: [{ url_to: 'https://www.space.dog/how-to-chase-a-cat' }] } });
     getTopPagesStub.resolves({ result: { pages: [] } });
 
     await brokenBacklinksAudit(assessment, site.baseURL, options);

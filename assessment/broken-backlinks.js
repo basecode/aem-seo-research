@@ -36,15 +36,18 @@ async function filterOutValidBacklinks(backlinks, log) {
     }
   };
 
+  // TODO: this could be refactored to use the request-runner.js
   const backlinkStatuses = await Promise.all(backlinks.map(isStillBrokenBacklink));
   return backlinks.filter((_, index) => backlinkStatuses[index]);
 }
 
 export const brokenBacklinksAudit = async (assessment, userSiteUrl, options, log = console) => {
+  // TODO: these could be outside of the audit function,
+  //  since it's just retrieving information about the site that
+  //  the audit should get as input parameters
   const site = assessment.getSite();
   const siteAuditUrl = assessment.getSiteAuditUrl();
 
-  // get top backlinks from ahrefs for the existing domain
   const ahrefsClient = new AhrefsAPIClient(
     { apiKey: process.env.AHREFS_API_KEY },
     new AhrefsCache(OUTPUT_DIR),
@@ -59,6 +62,9 @@ export const brokenBacklinksAudit = async (assessment, userSiteUrl, options, log
     return;
   }
 
+  // TODO: filtering the backlinks based on top pages to be enabled later,
+  //  after we see there's a need for it
+  /*
   const topPagesResponse = await ahrefsClient
     .getTopPages(siteAuditUrl, options.topPages);
   if (!topPagesResponse?.result?.pages
@@ -66,12 +72,13 @@ export const brokenBacklinksAudit = async (assessment, userSiteUrl, options, log
     log.warn(`No top pages found for the site URL ${siteAuditUrl}`);
     return;
   }
+  */
 
   // filter out backlinks that are not top pages
-  const topPagesUrls = topPagesResponse.result.pages.map((page) => page.url);
+  // const topPagesUrls = topPagesResponse.result.pages.map((page) => page.url);
   const topBacklinks = topBacklinksResponse.result.backlinks;
   const topBacklinksForTopPages = topBacklinks
-    .filter((backlink) => topPagesUrls.includes(backlink.url_to))
+    // filter((backlink) => topPagesUrls.includes(backlink.url_to))
     .map((backlink) => ({
       ...backlink,
       original_url_to: backlink.url_to,
@@ -80,6 +87,7 @@ export const brokenBacklinksAudit = async (assessment, userSiteUrl, options, log
 
   const brokenBacklinks = await filterOutValidBacklinks(topBacklinksForTopPages, log);
 
+  // TODO: this could be outside of the audit function, since it's just formatting stuff
   brokenBacklinks.forEach((backlink) => {
     assessment.addColumn({
       original_url: backlink.original_url_to,
@@ -94,6 +102,9 @@ export const brokenBacklinksAudit = async (assessment, userSiteUrl, options, log
 export const brokenBacklinks = (async () => {
   const userSiteUrl = process.argv[2];
 
+  // TODO: intentionally not exposed to the invoker,
+  //  until we figure out how much our API units budget can afford
+  //  compared to the value the assessment provides
   const options = {
     topPages: 200,
     topBacklinks: 200,
@@ -109,6 +120,7 @@ export const brokenBacklinks = (async () => {
   });
 
   await brokenBacklinksAudit(assessment, userSiteUrl, options);
+
   assessment.end();
   process.exit(0);
 })();
