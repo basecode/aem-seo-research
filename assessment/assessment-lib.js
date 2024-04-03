@@ -13,17 +13,19 @@
 import fs from 'fs';
 import path from 'path';
 import { json2csv } from 'json-2-csv';
+import { composeAuditURL } from '@adobe/spacecat-shared-utils';
+import SpaceCatSdk from 'spacecat-sdk/src/sdk.js';
 import { generateFileName, OUTPUT_DIR } from './file-lib.js';
-import { getSiteByBaseUrl } from '../spacecat-lib.js';
 
 export const USER_AGENT = 'basecode/seo-research-crawler/1.0';
+export const SPACECAT_API_BASE_URL = 'https://spacecat.experiencecloud.live/api/v1';
 
 const hrtimeToSeconds = (hrtime) => {
   const [seconds, nanoseconds] = hrtime; // Destructuring for clarity
   return (seconds * 1e9 + nanoseconds) / 1e9; // Simplified calculation
 };
 
-export const createAssessment = async (userSite, userTitle) => {
+export const createAssessment = async (siteUrl, userTitle) => {
   const TOTAL_START_HRTIME = process.hrtime();
   const csvContent = [];
 
@@ -33,26 +35,38 @@ export const createAssessment = async (userSite, userTitle) => {
   }
 
   console.log('Check if URL is qualified to be assessed. Needs to be part of spacecat catalogue');
-  const SITE = await getSiteByBaseUrl(userSite);
-  const SITE_URL = SITE.baseURL;
-  const FILE_PATH = path.join(OUTPUT_DIR, `${generateFileName(SITE_URL, userTitle)}-${Date.now()}.csv`);
-
-  console.log(`${userTitle}: Assessment for ${SITE_URL}`);
+  const spaceCatSdk = new SpaceCatSdk(
+    { apiBaseUrl: SPACECAT_API_BASE_URL, apiKey: process.env.SPACECAT_API_KEY },
+  );
+  const site = await spaceCatSdk.getSite(siteUrl);
+  const siteAuditUrl = await composeAuditURL(site.baseURL);
+  const reportFilePath = path.join(OUTPUT_DIR, `${generateFileName(siteAuditUrl, userTitle)}-${Date.now()}.csv`);
+  console.log(`${userTitle}: Assessment for ${siteAuditUrl}`);
 
   let rowHeadersAndDefaults;
 
   return {
+    getSite() {
+      return site;
+    },
+    getSiteAuditUrl() {
+      return siteAuditUrl;
+    },
     setRowHeadersAndDefaults(arg) {
       rowHeadersAndDefaults = arg;
     },
+    // TODO: should be addRow actually...
     addColumn(column) {
       const merge = { ...rowHeadersAndDefaults, ...column };
       csvContent.push(merge);
     },
+    getRows() {
+      return csvContent;
+    },
     end() {
       console.log(`Processing time in Minutes: ${hrtimeToSeconds(process.hrtime(TOTAL_START_HRTIME)) / 60}`);
       const csv = json2csv(csvContent);
-      fs.writeFileSync(FILE_PATH, csv);
+      fs.writeFileSync(reportFilePath, csv);
     },
   };
 };
