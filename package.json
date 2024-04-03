@@ -5,9 +5,9 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "npm run test",
+    "lint": "eslint . --fix",
+    "test": "mocha --reporter spec",
     "all": "node all-assessments.js",
-    "lint": "eslint . --fix"
   },
   "repository": {
     "type": "git",
