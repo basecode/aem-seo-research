@@ -16,6 +16,7 @@ import AhrefsAPIClient from './libs/ahrefs-client.js';
 import FileCache from './libs/file-cache.js';
 import { OUTPUT_DIR } from './file-lib.js';
 import HttpClient from './libs/fetch-client.js';
+import PageProvider from './libs/page-provider.js';
 
 const httpClient = new HttpClient().getInstance();
 const userSiteUrl = process.argv[2];
@@ -23,7 +24,7 @@ let totalBrokenLinks = 0;
 let pagesChecked = 0;
 
 const options = {
-  topPages: 2000,
+  topPages: 10, // saving costs
   rateLimitSize: 10
 };
 
@@ -78,53 +79,44 @@ async function checkInternalLinks(pageUrl, internalLinks) {
   return brokenLinks.filter((value) => value !== null);
 }
 
-async function checkForBrokenInternalLinks(url, assessment, sum_traffic) {
+async function checkForBrokenInternalLinks(url, assessment) {
   const internalLinks = await fetchInternalLinks(url);
   const errors = await checkInternalLinks(url, internalLinks);
   errors.forEach(e => {
     totalBrokenLinks++;
-    assessment.addColumn({ url, broken_link: e.link, statusCode: e.status, sum_traffic });
+    assessment.addColumn({ url, broken_link: e.link, statusCode: e.status });
   });
 }
-async function brokenInternalLinksAudit(siteUrl, assessment, params) {
+async function brokenInternalLinksAudit(assessment, params) {
   const ahrefsClient = new AhrefsAPIClient({ apiKey: process.env.AHREFS_API_KEY }, new FileCache(OUTPUT_DIR), httpClient);
-  const topPagesData = await ahrefsClient.getTopPages(siteUrl, params.topPages);
+  const pageProvider = new PageProvider({ ahrefsClient });
+  const pages = await pageProvider.getPagesOfInterest(assessment.getSite(), params.topPages);
 
-  if (!topPagesData) {
+  if (!pages) {
     throw new Error('No results found!');
   }
 
-  const { result: { pages } } = topPagesData;
-  const filteredPages = pages.filter(page => page.sum_traffic && page.sum_traffic > 0);
-
-  for (const page of filteredPages) {
+  for (const page of pages) {
     if (!page) {
       console.error('Null page found');
       continue; // Skip for null page
     }
-    console.log(`Checking the page: ${page.url}`);
-    await checkForBrokenInternalLinks(page.url, assessment, page.sum_traffic);
+    // fixme prodUrl or devUrl ??
+    const url = page.prodUrl;
+    console.log(`Checking the page: ${url}`);
+    await checkForBrokenInternalLinks(url, assessment);
     pagesChecked++;
     console.log(`Pages checked so far: ${pagesChecked}`);
   }
 
-  const limit = params.rateLimitSize;
-  const chunks = [];
-  for (let i = 0; i < Math.ceil(filteredPages.length / limit); i += 1) {
-    chunks.push(pages.slice(i * limit, Math.min((i + 1) * limit, filteredPages.length - 1)));
-  }
-
-  for (const chunk of chunks) {
-    await Promise.all(chunk.map(page => checkForBrokenInternalLinks(page.url, assessment, page.sum_traffic)));
-  }
   console.log(`Top Pages checked : ${pagesChecked}`);
   console.log(`Total broken internal links: ${totalBrokenLinks}`);
 }
 
 export const brokenInternalLinks = (async () => {
   const assessment = await createAssessment(userSiteUrl, 'Broken Internal Links');
-  assessment.setRowHeadersAndDefaults({ url: '', broken_link: '', statusCode: '', sum_traffic: '' });
-  await brokenInternalLinksAudit(userSiteUrl, assessment, options);
+  assessment.setRowHeadersAndDefaults({ url: '', broken_link: '', statusCode: '' });
+  await brokenInternalLinksAudit(assessment, options);
   assessment.end();
   process.exit(0);
 })();
