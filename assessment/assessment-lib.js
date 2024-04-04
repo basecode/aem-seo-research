@@ -33,8 +33,14 @@ export const createAssessment = async (userSite, userTitle) => {
   }
 
   console.log('Check if URL is qualified to be assessed. Needs to be part of spacecat catalogue');
-  const SITE = await getSiteByBaseUrl(userSite);
-  const SITE_URL = SITE.baseURL;
+  let SITE_URL='';
+  if (/hlx\.live$/i.test(userSite)) { 
+     SITE_URL = userSite; 
+  }
+  else {
+    const SITE = await getSiteByBaseUrl(userSite);
+    SITE_URL = SITE.baseURL;
+  }
   const FILE_PATH = path.join(OUTPUT_DIR, `${generateFileName(SITE_URL, userTitle)}-${Date.now()}.csv`);
 
   console.log(`${userTitle}: Assessment for ${SITE_URL}`);
