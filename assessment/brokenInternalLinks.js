@@ -13,7 +13,7 @@
 import { JSDOM } from 'jsdom';
 import { createAssessment } from './assessment-lib.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
-import FileCache from './libs/file-cache.js';
+import AhrefsCache from './libs/ahrefs-cache.js';
 import { OUTPUT_DIR } from './file-lib.js';
 import HttpClient from './libs/fetch-client.js';
 import PageProvider from './libs/page-provider.js';
@@ -24,8 +24,7 @@ let totalBrokenLinks = 0;
 let pagesChecked = 0;
 
 const options = {
-  topPages: 10, // saving costs
-  rateLimitSize: 10
+  topPages: 200, // Number of top pages to check
 };
 
 async function fetchInternalLinks(pageUrl) {
@@ -88,7 +87,7 @@ async function checkForBrokenInternalLinks(url, assessment) {
   });
 }
 async function brokenInternalLinksAudit(assessment, params) {
-  const ahrefsClient = new AhrefsAPIClient({ apiKey: process.env.AHREFS_API_KEY }, new FileCache(OUTPUT_DIR), httpClient);
+  const ahrefsClient = new AhrefsAPIClient({ apiKey: process.env.AHREFS_API_KEY }, new AhrefsCache(OUTPUT_DIR), httpClient);
   const pageProvider = new PageProvider({ ahrefsClient });
   const pages = await pageProvider.getPagesOfInterest(assessment.getSite(), params.topPages);
 
