@@ -12,7 +12,7 @@
 
 import { JSDOM } from 'jsdom';
 import { composeAuditURL } from '@adobe/spacecat-shared-utils';
-import { createAssessment, USER_AGENT } from './assessment-lib.js';
+import { createAssessment } from './assessment-lib.js';
 import AhrefsCache from './libs/ahrefs-cache.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
 import { OUTPUT_DIR } from './file-lib.js';

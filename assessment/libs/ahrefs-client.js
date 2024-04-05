@@ -50,13 +50,13 @@ export default class AhrefsAPIClient {
     const fullAuditRef = `${this.apiBaseUrl}${endpoint}${queryString}`;
 
     const response = await this.httpClient.get(
-        fullAuditRef,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-        }
+      fullAuditRef,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+      },
     );
 
     this.log.info(`Ahrefs API ${endpoint} response has number of rows: ${response.headers.get('x-api-rows')}, 

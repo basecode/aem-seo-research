@@ -23,7 +23,7 @@ const userSiteUrl = process.argv[2];
 let totalBrokenLinks = 0;
 let pagesChecked = 0;
 
-let defaultOptions = {
+const defaultOptions = {
   topPages: 200, // default number of pages to check
 };
 
@@ -31,38 +31,38 @@ async function fetchInternalLinks(pageUrl) {
   try {
     const response = await httpClient.get(pageUrl);
     if (!response.ok) {
-     return [];
+      return [];
     }
 
-  const internalLinks = [];
-  const baseUrl = new URL(pageUrl);
+    const internalLinks = [];
+    const baseUrl = new URL(pageUrl);
 
-  const htmlContent = await response.text();
-  const dom = new JSDOM(htmlContent);
-  const { body } = dom.window.document;
-  const allLinks = body.querySelectorAll('a');
+    const htmlContent = await response.text();
+    const dom = new JSDOM(htmlContent);
+    const { body } = dom.window.document;
+    const allLinks = body.querySelectorAll('a');
 
-  // Extract href attributes of anchor tags
-  allLinks.forEach((element) => {
-    const href = element.href;
-    if (href) {
-      let link = null;
+    // Extract href attributes of anchor tags
+    allLinks.forEach((element) => {
+      const { href } = element;
+      if (href) {
+        let link = null;
 
-      if (href.startsWith('/') && !href.startsWith('//')) {
-        link = new URL(href, baseUrl).toString();
-      } else if (href.startsWith(`//${baseUrl.host}`)) {
-        link = `${baseUrl.protocol}:${href}`;
-      } else if (href.startsWith(baseUrl.toString())) {
-        link = href;
+        if (href.startsWith('/') && !href.startsWith('//')) {
+          link = new URL(href, baseUrl).toString();
+        } else if (href.startsWith(`//${baseUrl.host}`)) {
+          link = `${baseUrl.protocol}:${href}`;
+        } else if (href.startsWith(baseUrl.toString())) {
+          link = href;
+        }
+
+        if (link != null) {
+          internalLinks.push(link);
+        }
       }
+    });
 
-      if (link != null) {
-        internalLinks.push(link);
-      }
-    }
-  });
-
-  return internalLinks;
+    return internalLinks;
   } catch (error) {
     console.error(`Failed to fetch internal links from ${pageUrl}: ${error}`);
     return [];
@@ -75,7 +75,7 @@ async function checkLink(link) {
     if (!response.ok) {
       return { link, status: response.status };
     }
-  } catch { }
+  } catch { /* empty */ }
   return null;
 }
 
@@ -90,34 +90,42 @@ async function checkForBrokenInternalLinks(url, assessment) {
   if (internalLinks.length === 0) return;
   const errors = await checkInternalLinks(url, internalLinks);
   if (errors.length === 0) return;
-  errors.forEach(e => {
-    totalBrokenLinks++;
+  errors.forEach((e) => {
+    totalBrokenLinks += 1;
     assessment.addColumn({ url, brokenLink: e.link, statusCode: e.status });
   });
 }
 async function brokenInternalLinksAudit(assessment, params) {
-  const ahrefsClient = new AhrefsAPIClient({ apiKey: process.env.AHREFS_API_KEY }, new AhrefsCache(OUTPUT_DIR), httpClient);
-  const pageProvider = new PageProvider({ ahrefsClient });
+  const ahrefsClient = new AhrefsAPIClient({
+    apiKey: process.env.AHREFS_API_KEY,
+  }, new AhrefsCache(OUTPUT_DIR), httpClient);
+
+  const pageProvider = new PageProvider({
+    ahrefsClient,
+  });
+
   const pages = await pageProvider.getPagesOfInterest(assessment.getSite(), params.topPages);
 
   if (!pages) {
     throw new Error('No results found!');
   }
 
-  for (const page of pages) {
-    if (!page) {
+  // Use Promise.all to handle all asynchronous operations concurrently
+  await Promise.all(pages.map(async (page) => {
+    if (page) {
+      const url = page.devUrl;
+      console.log(`Checking the page: ${url}`);
+
+      await checkForBrokenInternalLinks(url, assessment);
+
+      pagesChecked += 1;
+      console.log(`Pages checked so far: ${pagesChecked}`);
+    } else {
       console.error('Null page found');
-      continue; // Skip for null page
     }
+  }));
 
-    const url = page.devUrl;
-    console.log(`Checking the page: ${url}`);
-    await checkForBrokenInternalLinks(url, assessment);
-    pagesChecked++;
-    console.log(`Pages checked so far: ${pagesChecked}`);
-  }
-
-  console.log(`Top Pages checked : ${pagesChecked}`);
+  console.log(`Top Pages checked: ${pagesChecked}`);
   console.log(`Total broken internal links: ${totalBrokenLinks}`);
 }
 
