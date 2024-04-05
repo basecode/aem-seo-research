@@ -12,14 +12,16 @@
 
 import { JSDOM } from 'jsdom';
 import { composeAuditURL } from '@adobe/spacecat-shared-utils';
-import { createAssessment } from './assessment-lib.js';
+import { createAssessment, USER_AGENT } from './assessment-lib.js';
 import AhrefsCache from './libs/ahrefs-cache.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
 import { OUTPUT_DIR } from './file-lib.js';
-import { fetchAllPages, USER_AGENT } from './utils/support.js';
+import { fetchAllPages } from './sitemap.js';
+import HttpClient from './libs/fetch-client.js';
 
 const PARAMS = '?';
 const userSiteUrl = process.argv[2];
+const httpClient = new HttpClient().getInstance();
 
 const options = {
   topPages: 200,
@@ -41,7 +43,7 @@ const fetchWithRetry = async (url, maxRetries = 3, initialBackoff = 300) => {
 
   const attemptFetch = async () => {
     try {
-      const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+      const response = await httpClient.get(url);
       if (response.ok) {
         const location = response.headers.get('Location');
         // Handle redirects
@@ -67,7 +69,7 @@ const fetchWithRetry = async (url, maxRetries = 3, initialBackoff = 300) => {
 
 const checkForDuplicateUrl = async (url) => {
   try {
-    const response = await fetch(url, { method: 'HEAD', headers: { 'User-Agent': USER_AGENT } });
+    const response = await httpClient.get(url);
     return response.ok && !response.redirected;
   } catch (error) {
     console.error(`Failed to fetch ${url}: ${error}`);
@@ -200,6 +202,7 @@ export const canonical = (async () => {
   const assessment = await createAssessment(userSiteUrl, 'Canonical');
   assessment.setRowHeadersAndDefaults({
     url: '',
+    issues: '',
     error: '',
   });
   await canonicalAudit(userSiteUrl, assessment);
