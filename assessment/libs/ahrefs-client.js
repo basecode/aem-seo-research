@@ -11,6 +11,7 @@
  */
 
 import { isValidUrl } from '@adobe/spacecat-shared-utils';
+import HttpClient from './fetch-client.js';
 
 const AHREFS_API_BASE_URL = 'https://api.ahrefs.com/v3';
 
@@ -19,10 +20,10 @@ const getLimit = (limit, upperLimit) => Math.min(limit, upperLimit);
 export default class AhrefsAPIClient {
   static createFrom(context) {
     const { AHREFS_API_BASE_URL: apiBaseUrl, AHREFS_API_KEY: apiKey } = context.env;
-    return new AhrefsAPIClient({ apiBaseUrl, apiKey });
+    return new AhrefsAPIClient({ apiBaseUrl, apiKey }, undefined, new HttpClient().getInstance());
   }
 
-  constructor(config, cache, log = console) {
+  constructor(config, cache, httpClient, log = console) {
     const { apiKey, apiBaseUrl = AHREFS_API_BASE_URL } = config;
 
     if (!isValidUrl(apiBaseUrl)) {
@@ -31,6 +32,7 @@ export default class AhrefsAPIClient {
 
     this.apiBaseUrl = apiBaseUrl;
     this.apiKey = apiKey;
+    this.httpClient = httpClient;
     this.cache = cache || {
       get: () => undefined,
       put: () => undefined,
@@ -46,13 +48,16 @@ export default class AhrefsAPIClient {
         .join('&')}` : '';
 
     const fullAuditRef = `${this.apiBaseUrl}${endpoint}${queryString}`;
-    const response = await fetch(fullAuditRef, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-    });
+
+    const response = await this.httpClient.get(
+        fullAuditRef,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+        }
+    );
 
     this.log.info(`Ahrefs API ${endpoint} response has number of rows: ${response.headers.get('x-api-rows')}, 
       cost per row: ${response.headers.get('x-api-units-cost-row')},
@@ -112,6 +117,7 @@ export default class AhrefsAPIClient {
     this.log.info(`Calling Ahrefs API ${TOP_PAGES} for url ${url}`);
 
     const cached = this.cache.get(TOP_PAGES, { url, limit });
+
     if (cached) {
       return {
         result: {
