@@ -98,7 +98,7 @@ async function checkForBrokenInternalLinks(url, assessment) {
 async function brokenInternalLinksAudit(assessment, params) {
   const ahrefsClient = new AhrefsAPIClient({ apiKey: process.env.AHREFS_API_KEY }, new AhrefsCache(OUTPUT_DIR), httpClient);
   const pageProvider = new PageProvider({ ahrefsClient });
-  const pages = await pageProvider.getPagesOfInterest(assessment.getSite(), params.topPages);
+  const pages = await pageProvider.getPagesOfInterest(assessment.getSite(), {}, params.topPages);
 
   if (!pages) {
     throw new Error('No results found!');

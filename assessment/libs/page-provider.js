@@ -44,7 +44,7 @@ export default class PageProvider {
     this.log = log;
   }
 
-  async getPagesOfInterest(site, limit = 100, options = {}) {
+  async getPagesOfInterest(site, options = {}, limit = 100) {
     const siteAuditUrl = await composeAuditURL(site.baseURL);
 
     let devBaseURL;
