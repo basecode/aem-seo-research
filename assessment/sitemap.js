@@ -10,16 +10,61 @@
  * governing permissions and limitations under the License.
  */
 import fetch from 'node-fetch';
+import zlib from 'zlib';
 import dotenv from 'dotenv';
 
 import { createAssessment } from './assessment-lib.js';
 import {
   fetchAllPages, fetchSitemapsFromSource, findSitemap, USER_AGENT,
 } from './utils/support.js';
+import { parseStringPromise } from 'xml2js';
+import {createAssessment, USER_AGENT} from './assessment-lib.js';
+import HttpClient from './libs/fetch-client.js';
 
 dotenv.config();
 
+const httpClient = new HttpClient().getInstance();
 const userSiteUrl = process.argv[2];
+
+export const getRobotsTxt = async (siteUrl) => {
+  const defaultReturnValue = {
+    sitemaps: null,
+    exists: false,
+    error: null,
+  };
+
+  const parseRobotsTxt = (robotsTxt) => {
+    try {
+      const regex = /Sitemap:\s*(https?:\/\/[^\s]+)/g;
+      let match;
+      const sitemaps = [];
+      // eslint-disable-next-line no-cond-assign
+      while ((match = regex.exec(robotsTxt)) !== null) {
+        sitemaps.push(match[1]);
+      }
+      return {
+        ...defaultReturnValue,
+        exists: true,
+        sitemaps: sitemaps.length > 0 ? sitemaps : null,
+      };
+    } catch (error) {
+      return { ...defaultReturnValue, ...{ exists: true, sitemaps: null, error } };
+    }
+  };
+
+  try {
+    const robotsResponse = await fetch(new URL('robots.txt', siteUrl).toString(), {
+      headers: { 'User-Agent': USER_AGENT },
+    });
+    if (robotsResponse.ok) {
+      const robotsTxt = await robotsResponse.text();
+      return parseRobotsTxt(robotsTxt);
+    }
+    return defaultReturnValue;
+  } catch (error) {
+    return { ...defaultReturnValue, error };
+  }
+};
 
 async function checkPage(url) {
   const warnings = [];
@@ -30,7 +75,7 @@ async function checkPage(url) {
   }
   // file returns 2xx.
   try {
-    const response = await fetch(url, { method: 'HEAD', 'User-Agent': USER_AGENT });
+    const response = await httpClient.get(url);
     if (!response.ok) errors.push(`must return 2xx but returns ${response.status}`);
   } catch (error) {
     errors.push(`${url} returns error ${error.message}`);

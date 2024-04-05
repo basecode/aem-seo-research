@@ -16,7 +16,6 @@ import { json2csv } from 'json-2-csv';
 import { composeAuditURL } from '@adobe/spacecat-shared-utils';
 import SpaceCatSdk from 'spacecat-sdk/src/sdk.js';
 import { generateFileName, OUTPUT_DIR } from './file-lib.js';
-import { userAgentHeader } from './utils/support.js';
 
 export const USER_AGENT = 'basecode/seo-research-crawler/1.0';
 export const SPACECAT_API_BASE_URL = 'https://spacecat.experiencecloud.live/api/v1';
@@ -70,42 +69,4 @@ export const createAssessment = async (siteUrl, userTitle) => {
       fs.writeFileSync(reportFilePath, csv);
     },
   };
-};
-
-export const getRobotsTxt = async (siteUrl) => {
-  const defaultReturnValue = {
-    sitemaps: null,
-    exists: false,
-    error: null,
-  };
-
-  const parseRobotsTxt = (robotsTxt) => {
-    try {
-      const regex = /Sitemap:\s*(https?:\/\/[^\s]+)/g;
-      let match;
-      const sitemaps = [];
-      // eslint-disable-next-line no-cond-assign
-      while ((match = regex.exec(robotsTxt)) !== null) {
-        sitemaps.push(match[1]);
-      }
-      return {
-        ...defaultReturnValue,
-        exists: true,
-        sitemaps: sitemaps.length > 0 ? sitemaps : null,
-      };
-    } catch (error) {
-      return { ...defaultReturnValue, ...{ exists: true, sitemaps: null, error } };
-    }
-  };
-
-  try {
-    const robotsResponse = await fetch(new URL('robots.txt', siteUrl).toString(), userAgentHeader);
-    if (robotsResponse.ok) {
-      const robotsTxt = await robotsResponse.text();
-      return parseRobotsTxt(robotsTxt);
-    }
-    return defaultReturnValue;
-  } catch (error) {
-    return { ...defaultReturnValue, error };
-  }
 };
