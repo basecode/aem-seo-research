@@ -29,89 +29,122 @@ const options = {
 const startsWithWww = (url) => url.startsWith('https://www.');
 const endsWithSlash = (url) => url.endsWith('/');
 const endsWithHtml = (url) => url.endsWith('.html');
-const containsTrackingParams = (url) => url.includes(PARAMS);
+const containsParams = (url) => url.includes(PARAMS);
+
+const delay = (duration) => new Promise((resolve) => {
+  setTimeout(resolve, duration);
+});
+
+const fetchWithRetry = async (url, maxRetries = 3, initialBackoff = 300) => {
+  let retries = maxRetries;
+  let backoff = initialBackoff;
+
+  const attemptFetch = async () => {
+    try {
+      const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+      if (response.ok) {
+        const location = response.headers.get('Location');
+        // Handle redirects
+        return location || response;
+      }
+      throw new Error(`Response not OK: ${response.statusText}`);
+    } catch (error) {
+      if (retries > 0) {
+        console.log(`Error fetching URL ${url}: ${error.message}. Retrying in ${backoff}ms`);
+        await delay(backoff);
+        backoff *= 2;
+        retries -= 1;
+        // Recursive call
+        return attemptFetch();
+      }
+      // Rethrow error after exhausting retries
+      throw error;
+    }
+  };
+
+  return attemptFetch();
+};
+
 const checkForDuplicateUrl = async (url) => {
   try {
-    const response = await fetch(url, { method: 'HEAD', 'User-Agent': USER_AGENT });
+    const response = await fetch(url, { method: 'HEAD', headers: { 'User-Agent': USER_AGENT } });
     return response.ok && !response.redirected;
   } catch (error) {
+    console.error(`Failed to fetch ${url}: ${error}`);
     return false;
   }
 };
 
-// eslint-disable-next-line consistent-return
-const checkForCanonical = async (url, sitemapUrls, assessment, retries = 3, backoff = 300) => {
+const validateCanonicalLink = async (url, canonicalLink) => {
+  const response = await fetchWithRetry(url);
+  // If fetch failed, assume not valid
+  if (!response) return false;
+
+  const htmlContent = await response.text();
+  const dom = new JSDOM(htmlContent);
+  const { head } = dom.window.document;
+  const alternativeCanonical = head.querySelector('link[rel="canonical"]')?.href;
+
+  // Check for canonical match
+  return alternativeCanonical === canonicalLink;
+};
+
+const validateCanonicalAcrossAlternatives = async (urlAlternatives, canonicalLink) => {
+  const validationPromises = urlAlternatives.map(
+    (alternativeUrl) => validateCanonicalLink(alternativeUrl, canonicalLink),
+  );
+
+  const results = await Promise.all(validationPromises);
+  return results.every((isValid) => isValid);
+};
+
+const checkForCanonical = async (url, sitemapUrls, assessment) => {
   try {
-    const response = await fetch(url);
+    const response = await fetchWithRetry(url);
     const contentType = response.headers.get('content-type');
-    if (response.ok && contentType.includes('text/html')) {
-      const htmlContent = await response.text();
-      const dom = new JSDOM(htmlContent);
 
-      // should be in the head
-      const { head } = dom.window.document;
-      const canonicalLink = head.querySelector('link[rel="canonical"]')?.href;
+    if (!contentType || !contentType.includes('text/html')) {
+      throw new Error('Not an HTML page');
+    }
 
-      if (canonicalLink) {
-        const alternativeWwwUrl = startsWithWww(url) ? url.replace('https://www.', 'https://') : `https://www.${url.slice(8)}`;
-        const alternativeSlashUrl = endsWithSlash(url) ? url.slice(0, -1) : `${url}/`;
-        const alternativeHtmlUrl = endsWithHtml(url) ? url.slice(0, -5) : `${url}.html`;
+    const htmlContent = await response.text();
+    const dom = new JSDOM(htmlContent);
+    const canonicalLink = dom.window.document.querySelector('link[rel="canonical"]')?.href;
 
-        const isAlternativeWwwDuplicate = await checkForDuplicateUrl(alternativeWwwUrl);
-        const isAlternativeSlashDuplicate = await checkForDuplicateUrl(alternativeSlashUrl);
-        const isAlternativeHtmlDuplicate = await checkForDuplicateUrl(alternativeHtmlUrl);
-        // TODO: if there are the following duplicates,
-        //  visit them and make sure the canonical is the same among all of them
-        //  (point to one page only to avoid duplicate)
+    if (!canonicalLink) throw new Error('No canonical link found');
 
-        const issues = [
-          // different from sitemap
-          !sitemapUrls.some((obj) => obj.page === canonicalLink) ? 'canonical is either not present in the sitemap or not identical' : '',
-          startsWithWww(url) !== startsWithWww(canonicalLink) ? 'www mismatch' : '',
-          endsWithSlash(url) !== endsWithSlash(canonicalLink) ? 'trailing slash mismatch' : '',
-          endsWithHtml(url) !== endsWithHtml(canonicalLink) ? 'html extension mismatch' : '',
-          containsTrackingParams(url) ? 'url params present and should be removed' : '',
-          isAlternativeWwwDuplicate ? `duplicate URL detected for ${startsWithWww(url) ? 'non-www' : 'www'} version` : '',
-          isAlternativeSlashDuplicate ? `duplicate URL detected for ${endsWithSlash(url) ? 'non-slash' : 'slash'} version` : '',
-          isAlternativeHtmlDuplicate ? `duplicate URL detected for ${endsWithHtml(url) ? 'non-html' : 'html'} version` : '',
-        ].filter((issue) => issue !== ''); // Filter out non-issues
+    const alternatives = [
+      startsWithWww(url) ? url.replace('https://www.', 'https://') : `https://www.${url.slice(8)}`,
+      endsWithSlash(url) ? url.slice(0, -1) : `${url}/`,
+      endsWithHtml(url) ? url.slice(0, -5) : `${url}.html`,
+    ];
 
-        // check if canonical link exists
-        if (issues.length > 0) {
-          const issuesSummary = issues.join(', ');
-          assessment.addColumn({
-            url,
-            response: response.status,
-            error: issuesSummary,
-          });
-        }
-      } else {
-        assessment.addColumn({
-          url,
-          response: response.status,
-          error: 'No canonical link found',
-        });
-      }
-    } else {
+    const duplicateChecks = await Promise.all(alternatives.map(checkForDuplicateUrl));
+    const canonicalConsistency = await validateCanonicalAcrossAlternatives(alternatives.filter(
+      (_, index) => duplicateChecks[index],
+    ), canonicalLink);
+
+    const issues = [
+      !sitemapUrls.some((obj) => obj.page === canonicalLink) && 'Canonical not in sitemap',
+      containsParams(url) && 'URL contains parameters',
+      !canonicalConsistency && 'Canonical inconsistency across versions',
+      duplicateChecks[0] && 'WWW version duplicate',
+      duplicateChecks[1] && 'Trailing slash version duplicate',
+      duplicateChecks[2] && 'HTML extension version duplicate',
+    ].filter(Boolean);
+
+    if (issues.length > 0) {
       assessment.addColumn({
         url,
-        response: response.status,
-        error: 'URL does not exist or is not an HTML page',
+        status: response.status,
+        issues: issues.join(', '),
       });
     }
   } catch (error) {
-    if (retries > 0) {
-      console.log(`Error fetching URL ${url}: ${error.message}. Retrying in ${backoff}ms`);
-      await new Promise((resolve) => {
-        setTimeout(resolve, backoff);
-      });
-      return checkForCanonical(url, sitemapUrls, assessment, retries - 1, backoff * 2);
-    } else {
-      assessment.addColumn({
-        url,
-        error: `Error fetching URL ${url}: ${error.message} after ${retries} retries`,
-      });
-    }
+    assessment.addColumn({
+      url,
+      error: error.message,
+    });
   }
 };
 
@@ -139,14 +172,10 @@ const canonicalAudit = async (siteUrl, assessment) => {
   const totalTrafficWithWWW = sumTraffic(responseWithWWW.result.pages);
   const response = totalTrafficNoWWW > totalTrafficWithWWW ? responseNoWWW : responseWithWWW;
 
-  // eslint-disable-next-line array-callback-return,consistent-return
-  return Promise.all(
-    response.result.pages.filter((
-      page,
-    ) => page.url).map((
-      page,
-    ) => checkForCanonical(page.url, sitemapUrls, assessment)),
-  );
+  const canonicalCheckPromises = response.result.pages
+    .filter((page) => page.url)
+    .map((page) => checkForCanonical(page.url, sitemapUrls, assessment));
+  return Promise.all(canonicalCheckPromises);
 };
 
 export const canonical = (async () => {
