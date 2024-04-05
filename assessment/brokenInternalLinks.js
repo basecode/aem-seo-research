@@ -23,7 +23,7 @@ const userSiteUrl = process.argv[2];
 let totalBrokenLinks = 0;
 let pagesChecked = 0;
 
-let defaultOptions = {
+const defaultOptions = {
   topPages: 200, // default number of pages to check
 };
 
@@ -31,38 +31,38 @@ async function fetchInternalLinks(pageUrl) {
   try {
     const response = await httpClient.get(pageUrl);
     if (!response.ok) {
-     return [];
+      return [];
     }
 
-  const internalLinks = [];
-  const baseUrl = new URL(pageUrl);
+    const internalLinks = [];
+    const baseUrl = new URL(pageUrl);
 
-  const htmlContent = await response.text();
-  const dom = new JSDOM(htmlContent);
-  const { body } = dom.window.document;
-  const allLinks = body.querySelectorAll('a');
+    const htmlContent = await response.text();
+    const dom = new JSDOM(htmlContent);
+    const { body } = dom.window.document;
+    const allLinks = body.querySelectorAll('a');
 
-  // Extract href attributes of anchor tags
-  allLinks.forEach((element) => {
-    const href = element.href;
-    if (href) {
-      let link = null;
+    // Extract href attributes of anchor tags
+    allLinks.forEach((element) => {
+      const { href } = element;
+      if (href) {
+        let link = null;
 
-      if (href.startsWith('/') && !href.startsWith('//')) {
-        link = new URL(href, baseUrl).toString();
-      } else if (href.startsWith(`//${baseUrl.host}`)) {
-        link = `${baseUrl.protocol}:${href}`;
-      } else if (href.startsWith(baseUrl.toString())) {
-        link = href;
+        if (href.startsWith('/') && !href.startsWith('//')) {
+          link = new URL(href, baseUrl).toString();
+        } else if (href.startsWith(`//${baseUrl.host}`)) {
+          link = `${baseUrl.protocol}:${href}`;
+        } else if (href.startsWith(baseUrl.toString())) {
+          link = href;
+        }
+
+        if (link != null) {
+          internalLinks.push(link);
+        }
       }
+    });
 
-      if (link != null) {
-        internalLinks.push(link);
-      }
-    }
-  });
-
-  return internalLinks;
+    return internalLinks;
   } catch (error) {
     console.error(`Failed to fetch internal links from ${pageUrl}: ${error}`);
     return [];
@@ -90,7 +90,7 @@ async function checkForBrokenInternalLinks(url, assessment) {
   if (internalLinks.length === 0) return;
   const errors = await checkInternalLinks(url, internalLinks);
   if (errors.length === 0) return;
-  errors.forEach(e => {
+  errors.forEach((e) => {
     totalBrokenLinks++;
     assessment.addColumn({ url, brokenLink: e.link, statusCode: e.status });
   });
