@@ -23,15 +23,16 @@ const userSiteUrl = process.argv[2];
 let totalBrokenLinks = 0;
 let pagesChecked = 0;
 
-const options = {
-  topPages: 200, // Number of top pages to check
+let defaultOptions = {
+  topPages: 200, // default number of pages to check
 };
 
 async function fetchInternalLinks(pageUrl) {
-  const response = await httpClient.get(pageUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch page: ${response.statusText}`);
-  }
+  try {
+    const response = await httpClient.get(pageUrl);
+    if (!response.ok) {
+     return [];
+    }
 
   const internalLinks = [];
   const baseUrl = new URL(pageUrl);
@@ -62,13 +63,19 @@ async function fetchInternalLinks(pageUrl) {
   });
 
   return internalLinks;
+  } catch (error) {
+    console.error(`Failed to fetch internal links from ${pageUrl}: ${error}`);
+    return [];
+  }
 }
 
 async function checkLink(link) {
-  const response = await httpClient.get(link);
-  if (!response.ok) {
-    return { link, status: response.status };
-  }
+  try {
+    const response = await httpClient.get(link);
+    if (!response.ok) {
+      return { link, status: response.status };
+    }
+  } catch { }
   return null;
 }
 
@@ -80,10 +87,12 @@ async function checkInternalLinks(pageUrl, internalLinks) {
 
 async function checkForBrokenInternalLinks(url, assessment) {
   const internalLinks = await fetchInternalLinks(url);
+  if (internalLinks.length === 0) return;
   const errors = await checkInternalLinks(url, internalLinks);
+  if (errors.length === 0) return;
   errors.forEach(e => {
     totalBrokenLinks++;
-    assessment.addColumn({ url, broken_link: e.link, statusCode: e.status });
+    assessment.addColumn({ url, brokenLink: e.link, statusCode: e.status });
   });
 }
 async function brokenInternalLinksAudit(assessment, params) {
@@ -100,8 +109,8 @@ async function brokenInternalLinksAudit(assessment, params) {
       console.error('Null page found');
       continue; // Skip for null page
     }
-    // fixme prodUrl or devUrl ??
-    const url = page.prodUrl;
+
+    const url = page.devUrl;
     console.log(`Checking the page: ${url}`);
     await checkForBrokenInternalLinks(url, assessment);
     pagesChecked++;
@@ -114,8 +123,8 @@ async function brokenInternalLinksAudit(assessment, params) {
 
 export const brokenInternalLinks = (async () => {
   const assessment = await createAssessment(userSiteUrl, 'Broken Internal Links');
-  assessment.setRowHeadersAndDefaults({ url: '', broken_link: '', statusCode: '' });
-  await brokenInternalLinksAudit(assessment, options);
+  assessment.setRowHeadersAndDefaults({ url: '', brokenLink: '', statusCode: '' });
+  await brokenInternalLinksAudit(assessment, defaultOptions);
   assessment.end();
   process.exit(0);
 })();
