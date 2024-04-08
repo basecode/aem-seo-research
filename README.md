@@ -13,7 +13,7 @@ Run `npm install` to install dependencies.
 
 ## How to trigger all assessments
 
-`npm run all <baselUrl>`
+`npm run all <baseURL> [options]`
 
 ## How to trigger canonical assessment
 
