@@ -34,14 +34,22 @@ export const createAssessment = async (siteUrl, userTitle) => {
     fs.mkdirSync(OUTPUT_DIR);
   }
 
-  console.log('Check if URL is qualified to be assessed. Needs to be part of spacecat catalogue');
-  const spaceCatSdk = new SpaceCatSdk(
-    { apiBaseUrl: SPACECAT_API_BASE_URL, apiKey: process.env.SPACECAT_API_KEY },
-  );
-  const site = await spaceCatSdk.getSite(siteUrl);
-  const siteAuditUrl = await composeAuditURL(site.baseURL);
+  console.log('Check if URL is qualified to be assessed. Needs to be part of spacecat catalogue or hlx.live site');
+
+  let siteAuditUrl = '';
+  if (/hlx\.live$/i.test(siteUrl)) {
+    siteAuditUrl = siteUrl;
+  }
+  else {
+    const spaceCatSdk = new SpaceCatSdk(
+      { apiBaseUrl: SPACECAT_API_BASE_URL, apiKey: process.env.SPACECAT_API_KEY },
+    );
+    const site = await spaceCatSdk.getSite(siteUrl);
+    siteAuditUrl = await composeAuditURL(site.baseURL);
+  }
   const reportFilePath = path.join(OUTPUT_DIR, `${generateFileName(siteAuditUrl, userTitle)}-${Date.now()}.csv`);
   console.log(`${userTitle}: Assessment for ${siteAuditUrl}`);
+
 
   let rowHeadersAndDefaults;
 
