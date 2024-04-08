@@ -21,7 +21,8 @@ Run `npm install` to install dependencies.
 
 Options:
 - `--top-pages=<number>` - Run audit for top pages (default 200), based on estimated organic traffic
-- `--sitemap=<sitemapUrl>` - Specify a specific sitemap location (default fetched from robots.txt or /sitemap.xml), especially useful for page in development as they are not listed yet in the robots.txt or sitemap_index.xml
+- `--sitemap=<sitemapUrl>` - Specify a specific sitemap location (default fetched from robots.txt or /sitemap.xml), 
+especially useful for page in development as they are not listed yet in the robots.txt or sitemap_index.xml
 
 ## How to trigger brokenInternalLinks assessment
 
@@ -32,3 +33,12 @@ Options:
 `node ./assessment/broken-backlinks.js <baseUrl>`
 
 `npm run broken-backlinks <baseUrl>`
+
+Options:
+- `topBacklinks=<number>` - Number of top backlinks (default 200), to run the audit for
+- `topPages=<number>` - Number of top pages (default 200), based on estimated organic traffic, to filter the backlinks
+- `onlyBacklinksInTopPages=<boolean>` - Only check backlinks that are in the top pages
+- `devBaseURL=<devBaseURL>` - Base URL of the development environment on which the backlinks should be checked
+- `sitemap=<sitemapUrl>` - Not used for now. Specify a specific sitemap location (default fetched from robots.txt or 
+  /sitemap.xml), especially useful for page in development as they are not listed yet in the robots.txt or sitemap_index.xml,
+ to use instead of the top pages from Ahrefs
