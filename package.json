@@ -8,6 +8,7 @@
     "lint": "eslint . --fix",
     "test": "mocha --reporter spec",
     "broken-internal-links": "node ./assessment/brokenInternalLinks.js",
+    "excludeSidekick": "node ./assessment/excludeSidekick.js",
     "all": "node all-assessments.js"
   },
   "repository": {
@@ -32,8 +33,8 @@
     "jsdom": "^24.0.0",
     "json-2-csv": "^5.5.1",
     "node-fetch": "3.3.2",
+    "node-fetch-cache": "^4.1.0",
     "spacecat-sdk": "https://gitpkg.now.sh/adobe/spacecat-shared/packages/spacecat-shared-sdk?spacecat-sdk",
-    "node-fetch-cache": "4.1.0",
     "xml2js": "^0.6.2",
     "zlib": "^1.0.5"
   },
