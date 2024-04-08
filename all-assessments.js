@@ -12,9 +12,11 @@
 import { canonical } from './assessment/canonical.js';
 import { sitemap } from './assessment/sitemap.js';
 import { brokenInternalLinks } from './assessment/brokenInternalLinks.js';
+import { excludeSidekick } from './assessment/excludeSidekick.js';
 
 (async () => {
   await sitemap;
   await canonical;
   await brokenInternalLinks;
+  await excludeSidekick;
 })();
