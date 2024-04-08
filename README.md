@@ -26,3 +26,7 @@ Options:
 ## How to trigger brokenInternalLinks assessment
 
 `npm run broken-internal-links <baseUrl>`
+
+## How to trigger excludeSideKick assessment
+
+`node ./assessment/excludeSidekick.js <baseUrl>
