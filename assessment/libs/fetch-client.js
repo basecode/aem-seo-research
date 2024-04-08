@@ -18,14 +18,14 @@ import { USER_AGENT } from '../assessment-lib.js';
 
 class CachedFetchAPI {
   /**
-     * build a NodeFetchCache wrapper and pass a TTL and a cache directory.
-     * no need to add overhead by handling custom path renames or HAR responses, support is OOTB
-     * @param {Object} config - Configuration object
-     * @param {string} config.cacheDirectory - Path to the cache directory
-     * @param {number} config.ttl - Time to live for cache in milliseconds set as undefined
-     * to cache indefinitely
-     *
-     */
+   * build a NodeFetchCache wrapper and pass a TTL and a cache directory.
+   * no need to add overhead by handling custom path renames or HAR responses, support is OOTB
+   * @param {Object} config - Configuration object
+   * @param {string} config.cacheDirectory - Path to the cache directory
+   * @param {number} config.ttl - Time to live for cache in milliseconds set as undefined
+   * to cache indefinitely
+   *
+   */
 
   constructor(config) {
     this.fetch = NodeFetchCache.create({
@@ -40,30 +40,24 @@ class CachedFetchAPI {
   // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
 
   /**
-     * Wrapper over Fetch API GET
-     *
-     * @param url
-     * @param options
-     * @returns {Promise<NodeFetchResponse>}
-     */
+   * Wrapper over Fetch API GET
+   *
+   * @param url
+   * @param options
+   * @returns {Promise<NodeFetchResponse>}
+   */
   async get(url, options = {}) {
-    const response = await this.call('GET', url, undefined, options);
-    if (response.isCacheMiss) {
-      console.log(`Fetch made for ${url}. without cache.`);
-    } else {
-      console.log(`- Fetched ${url} from cache.`);
-    }
-    return response;
+    return this.call('GET', url, undefined, options);
   }
 
   /**
-     * Wrapper over Fetch API POST
-     *
-     * @param url
-     * @param data
-     * @param options
-     * @returns {Promise<NodeFetchResponse>}
-     */
+   * Wrapper over Fetch API POST
+   *
+   * @param url
+   * @param data
+   * @param options
+   * @returns {Promise<NodeFetchResponse>}
+   */
   async post(url, data = {}, options = {}) {
     return this.call('POST', url, data, options);
   }
@@ -74,17 +68,18 @@ class CachedFetchAPI {
       setTimeout(resolve, ms);
     });
 
+    console.log('StartUrl:', url, 'Time:', performance.now());
     let response = await this.fetch(url, {
       ...options,
       method,
       headers: {
         ...options.headers,
-        Cache: 'only-if-cached',
-        'User-Agent': USER_AGENT, // always override to ensure consistency
+        'Cache-Control': 'only-if-cached',
+        'User-Agent': USER_AGENT,
       },
       ...body,
     });
-
+    console.log('isCacheMissed:', response.isCacheMiss, url);
     if (response.isCacheMiss) {
       await delay(1000);
       response = await this.fetch(url, {
@@ -92,11 +87,12 @@ class CachedFetchAPI {
         method,
         headers: {
           ...options.headers,
-          'User-Agent': USER_AGENT, // always override to ensure consistency
+          'User-Agent': USER_AGENT,
         },
         ...body,
       });
     }
+    console.log('EndUrl:', url, 'Time:', performance.now());
 
     return response;
   }
