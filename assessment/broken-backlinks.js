@@ -51,11 +51,10 @@ export const brokenBacklinksAudit = async (assessment, userSiteUrl, options, log
   const siteAuditUrl = assessment.getSiteAuditUrl();
 
   let devBaseURL;
+  let hlxSiteURL;
   if (options.devBaseURL) {
     devBaseURL = await composeAuditURL(options.devBaseURL);
-  }
-  let hlxSiteURL;
-  if (site.gitHubURL) {
+  } else if (site.gitHubURL) {
     hlxSiteURL = await gitHubURLToHlxSite(site.gitHubURL);
   }
 

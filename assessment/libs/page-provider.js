@@ -48,11 +48,11 @@ export default class PageProvider {
     const siteAuditUrl = await composeAuditURL(site.baseURL);
 
     let devBaseURL;
+    let hlxSiteURL;
+
     if (options.devBaseURL) {
       devBaseURL = await composeAuditURL(options.devBaseURL);
-    }
-    let hlxSiteURL;
-    if (site.gitHubURL) {
+    } else if (site.gitHubURL) {
       hlxSiteURL = await gitHubURLToHlxSite(site.gitHubURL);
     }
 

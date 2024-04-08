@@ -18,9 +18,13 @@ import sinon from 'sinon';
 import sinonChai from 'sinon-chai';
 import nock from 'nock';
 import SpaceCatSdk from 'spacecat-sdk/src/sdk.js';
+import fs from 'fs';
+import path from 'path';
 import { createAssessment } from '../assessment/assessment-lib.js';
 import { brokenBacklinksAudit } from '../assessment/broken-backlinks.js';
 import AhrefsAPIClient from '../assessment/libs/ahrefs-client.js';
+import HttpClient from '../assessment/libs/fetch-client.js';
+import { OUTPUT_DIR, ROOT_DIR } from '../assessment/file-lib.js';
 
 chai.use(sinonChai);
 chai.use(chaiAsPromised);
@@ -39,6 +43,13 @@ describe('brokenBacklinksAudit', () => {
 
   beforeEach(() => {
     spaceCatSdkGetSiteStub.resolves(site);
+    nock('https://main--spacedog--hlxsites.hlx.live')
+      .get('/')
+      .reply(200);
+    const cacheDir = path.join(ROOT_DIR, '.http_cache');
+    if (fs.existsSync(cacheDir)) {
+      fs.rmdirSync(cacheDir, { recursive: true });
+    }
   });
 
   afterEach(() => {
@@ -55,12 +66,17 @@ describe('brokenBacklinksAudit', () => {
     expect(assessment.getRows()).to.be.empty;
   });
 
-  // TODO: re-enable when filtering by top pages is re-enabled
-  xit('should handle no top pages found', async () => {
+  it('should handle no top pages found', async () => {
     const assessment = await createAssessment('https://space.dog', 'Broken Backlinks');
 
     getBacklinksStub.resolves({ result: { backlinks: [{ url_to: 'https://www.space.dog/how-to-chase-a-cat' }] } });
     getTopPagesStub.resolves({ result: { pages: [] } });
+
+    nock('https://main--spacedog--hlxsites.hlx.live')
+      .get('/how-to-chase-a-cat')
+      .reply(200);
+
+    options.onlyBacklinksInTopPages = true;
 
     await brokenBacklinksAudit(assessment, site.baseURL, options);
     expect(assessment.getRows()).to.be.empty;
