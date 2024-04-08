@@ -10,53 +10,47 @@
  * governing permissions and limitations under the License.
  */
 
+// eslint-disable-next-line max-classes-per-file
 import path from 'path';
 import NodeFetchCache, { FileSystemCache } from 'node-fetch-cache';
-import {ROOT_DIR} from '../file-lib.js';
-import {USER_AGENT} from '../assessment-lib.js';
+import { ROOT_DIR } from '../file-lib.js';
+import { USER_AGENT } from '../assessment-lib.js';
 
 class CachedFetchAPI {
-
-    /**
+  /**
      * build a NodeFetchCache wrapper and pass a TTL and a cache directory.
      * no need to add overhead by handling custom path renames or HAR responses, support is OOTB
      * @param {Object} config - Configuration object
      * @param {string} config.cacheDirectory - Path to the cache directory
-     * @param {number} config.ttl - Time to live for cache in milliseconds set as undefined to cache indefinitely
+     * @param {number} config.ttl - Time to live for cache in milliseconds set as undefined
+     * to cache indefinitely
      *
      */
 
-    constructor(config) {
-        this.fetch = NodeFetchCache.create({
-            shouldCacheResponse: (response) => response.ok,
-            cache: new FileSystemCache({
-                cacheDirectory: config.cacheDirectory,
-                ttl: config.ttl,
-            }),
-        })
-    }
+  constructor(config) {
+    this.fetch = NodeFetchCache.create({
+      shouldCacheResponse: (response) => response.ok,
+      cache: new FileSystemCache({
+        cacheDirectory: config.cacheDirectory,
+        ttl: config.ttl,
+      }),
+    });
+  }
 
-    // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
+  // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
 
-    /**
+  /**
      * Wrapper over Fetch API GET
      *
      * @param url
      * @param options
      * @returns {Promise<NodeFetchResponse>}
      */
-    async get(url, options = {}) {
-        // console.log(`Fetching ${url}...`);
-        const response = await this.call('GET', url, undefined, options);
-        if (response.isCacheMiss) {
-            console.log(`Fetch made for ${url}. without cache.`);
-        } else {
-            console.log(`- Fetched ${url} from cache.`);
-        }
-        return response;
-    }
+  async get(url, options = {}) {
+    return this.call('GET', url, undefined, options);
+  }
 
-    /**
+  /**
      * Wrapper over Fetch API POST
      *
      * @param url
@@ -64,54 +58,54 @@ class CachedFetchAPI {
      * @param options
      * @returns {Promise<NodeFetchResponse>}
      */
-    async post(url, data = {}, options = {}) {
-        return this.call('POST', url, data, options);
+  async post(url, data = {}, options = {}) {
+    return this.call('POST', url, data, options);
+  }
+
+  async call(method, url, data = undefined, options = {}) {
+    const body = data ? { body: JSON.stringify(data) } : {};
+    const response = await this.fetch(url, {
+      ...options,
+      method,
+      headers: {
+        ...options.headers,
+        'User-Agent': USER_AGENT, // always override to ensure consistency
+      },
+      ...body,
+    });
+
+    if (!response.returnedFromCache) {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 1000);
+      });
     }
 
-    async call(method, url, data = undefined, options = {}) {
-        const response = await this.fetch(url, {
-            ...options,
-            method,
-            headers: {
-                ...options.headers,
-                'User-Agent': USER_AGENT, // always override to ensure consistency
-            },
-            ...(data ? { body: JSON.stringify(data) } : {}),
-        });
+    return response;
+  }
 
-        if (response.isCacheMiss) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-
-        return response;
-    }
-
-
-    /**
+  /**
      * Wrapper over Node Fetch Cache isCacheMiss
      * @param {NFCResponse} response (from a get or post call)
      * @returns {boolean}
      */
-    isCached(response) {
-        return !response.isCacheMiss;
-    }
+  isCached(response) {
+    return !response.isCacheMiss;
+  }
 }
 
 export default class HttpClient {
-
-    constructor() {
-        if (!HttpClient.instance) {
-            HttpClient.instance = new CachedFetchAPI({
-                cacheDirectory: path.join(ROOT_DIR, '.http_cache'),
-            });
-        }
+  constructor() {
+    if (!HttpClient.instance) {
+      HttpClient.instance = new CachedFetchAPI({
+        cacheDirectory: path.join(ROOT_DIR, '.http_cache'),
+      });
     }
+  }
 
-    /**
+  /**
      * @returns {CachedFetchAPI}
      */
-    getInstance() {
-        return HttpClient.instance;
-    }
-
+  getInstance() {
+    return HttpClient.instance;
+  }
 }
