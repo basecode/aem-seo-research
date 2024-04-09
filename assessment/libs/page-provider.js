@@ -12,29 +12,49 @@
 
 import { composeAuditURL } from '@adobe/spacecat-shared-utils';
 
-export function prodToDevUrl(site, siteAuditUrl, pageUrl) {
-  if (site.gitHubURL) {
-    const gitHubUrl = new URL(site.gitHubURL);
-    const [owner, repository] = gitHubUrl.pathname.split('/').filter(Boolean);
-
-    const url = new URL(pageUrl);
-    url.hostname = `main--${repository}--${owner}.hlx.live`;
-
-    return url.toString();
+export async function gitHubURLToHlxSite(gitHubURL) {
+  if (!gitHubURL) {
+    throw new Error('GitHub URL is required');
   }
 
-  return pageUrl;
+  try {
+    const gitHubUrl = new URL(gitHubURL);
+    const [owner, repository] = gitHubUrl.pathname.split('/').filter(Boolean);
+    if (!owner || !repository) {
+      throw new Error(`Invalid GitHub URL: ${gitHubUrl.toString()}`);
+    }
+
+    const hlxSiteURL = new URL(`https://main--${repository}--${owner}.hlx.live`);
+    return composeAuditURL(hlxSiteURL.toString());
+  } catch (error) {
+    throw new Error(`Failed to convert GitHub URL to hlx site URL: ${error.message}`);
+  }
+}
+
+export function prodToDevUrl(pageUrl, { hlxSiteURL, devBaseURL }) {
+  const url = new URL(pageUrl);
+  url.hostname = devBaseURL || hlxSiteURL || url.hostname;
+  return url.toString();
 }
 
 export default class PageProvider {
-  constructor({ ahrefsClient, sitemapSrc }, log = console) {
+  constructor({ ahrefsClient, sitemap }, log = console) {
     this.ahrefsClient = ahrefsClient;
-    this.sitemapSrc = sitemapSrc;
+    this.sitemap = sitemap;
     this.log = log;
   }
 
-  async getPagesOfInterest(site, limit = 100) {
+  async getPagesOfInterest(site, options = {}, limit = 100) {
     const siteAuditUrl = await composeAuditURL(site.baseURL);
+
+    let devBaseURL;
+    let hlxSiteURL;
+
+    if (options.devBaseURL) {
+      devBaseURL = await composeAuditURL(options.devBaseURL);
+    } else if (site.gitHubURL) {
+      hlxSiteURL = await gitHubURLToHlxSite(site.gitHubURL);
+    }
 
     if (this.ahrefsClient) {
       try {
@@ -42,7 +62,7 @@ export default class PageProvider {
         if (response?.result?.pages) {
           return response?.result?.pages.map((page) => ({
             prodUrl: page.url,
-            devUrl: prodToDevUrl(site, siteAuditUrl, page.url),
+            devUrl: prodToDevUrl(page.url, { devBaseURL, hlxSiteURL }),
           }));
         }
       } catch (error) {

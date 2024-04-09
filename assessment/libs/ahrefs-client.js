@@ -17,6 +17,9 @@ const AHREFS_API_BASE_URL = 'https://api.ahrefs.com/v3';
 
 const getLimit = (limit, upperLimit) => Math.min(limit, upperLimit);
 
+// TODO: initially copied from https://github.com/adobe/spacecat-audit-worker/blob/main/src/support/ahrefs-client.js
+//  when merging back, it will require updates due to changes in the http client interface
+//  introduced by the node-fetch-cache implementation
 export default class AhrefsAPIClient {
   static createFrom(context) {
     const { AHREFS_API_BASE_URL: apiBaseUrl, AHREFS_API_KEY: apiKey } = context.env;

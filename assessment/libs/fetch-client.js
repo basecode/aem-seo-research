@@ -23,7 +23,8 @@ class CachedFetchAPI {
      * @param {Object} config - Configuration object
      * @param {string} config.cacheDirectory - Path to the cache directory
      * @param {number} config.ttl - Time to live for cache in milliseconds.
-     *                              Set as undefined to cache indefinitely
+     *                              Set as undefined
+     * to cache indefinitely
      *
      */
 
@@ -47,14 +48,8 @@ class CachedFetchAPI {
      * @returns {Promise<NodeFetchResponse>}
      */
   async get(url, options = {}) {
-    // console.log(`Fetching ${url}...`);
-    const response = await this.call('GET', url, undefined, options);
-    if (response.isCacheMiss) {
-      console.log(`Fetch made for ${url}. without cache.`);
-    } else {
-      console.log(`- Fetched ${url} from cache.`);
-    }
-    return response;
+    return this.call('GET', url, undefined, options);
+
   }
 
   /**
@@ -70,6 +65,7 @@ class CachedFetchAPI {
   }
 
   async call(method, url, data = undefined, options = {}) {
+    const body = data ? { body: JSON.stringify(data) } : {};
     const response = await this.fetch(url, {
       ...options,
       method,
@@ -77,10 +73,10 @@ class CachedFetchAPI {
         ...options.headers,
         'User-Agent': USER_AGENT, // always override to ensure consistency
       },
-      ...(data ? { body: JSON.stringify(data) } : {}),
+      ...body,
     });
 
-    if (response.isCacheMiss) {
+    if (!response.returnedFromCache) {
       await new Promise((resolve) => {
         setTimeout(resolve, 1000);
       });
@@ -96,7 +92,7 @@ class CachedFetchAPI {
      */
   // eslint-disable-next-line class-methods-use-this
   isCached(response) {
-    return !response.isCacheMiss;
+    return response.returnedFromCache;
   }
 }
 

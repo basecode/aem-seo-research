@@ -10,6 +10,7 @@
     "lint": "eslint . --fix",
     "test": "mocha --reporter spec",
     "broken-internal-links": "node ./assessment/brokenInternalLinks.js",
+    "broken-backlinks": "node ./assessment/broken-backlinks.js",
     "all": "node all-assessments.js"
   },
   "repository": {
