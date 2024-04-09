@@ -89,7 +89,7 @@ class CachedFetchAPI {
      * @returns {boolean}
      */
   isCached(response) {
-    return !response.returnedFromCache;
+    return response.returnedFromCache;
   }
 }
 
