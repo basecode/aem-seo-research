@@ -23,8 +23,7 @@ import path from 'path';
 import { createAssessment } from '../assessment/assessment-lib.js';
 import { brokenBacklinksAudit } from '../assessment/broken-backlinks.js';
 import AhrefsAPIClient from '../assessment/libs/ahrefs-client.js';
-import HttpClient from '../assessment/libs/fetch-client.js';
-import { OUTPUT_DIR, ROOT_DIR } from '../assessment/file-lib.js';
+import { ROOT_DIR } from '../assessment/file-lib.js';
 
 chai.use(sinonChai);
 chai.use(chaiAsPromised);

@@ -14,8 +14,6 @@ import dotenv from 'dotenv';
 import { composeAuditURL } from '@adobe/spacecat-shared-utils';
 import { createAssessment } from './assessment-lib.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
-import AhrefsCache from './libs/ahrefs-cache.js';
-import { OUTPUT_DIR } from './file-lib.js';
 import { gitHubURLToHlxSite, prodToDevUrl } from './libs/page-provider.js';
 import HttpClient from './libs/fetch-client.js';
 
@@ -60,8 +58,8 @@ export const brokenBacklinksAudit = async (assessment, userSiteUrl, options, log
 
   const ahrefsClient = new AhrefsAPIClient(
     { apiKey: process.env.AHREFS_API_KEY },
-    new AhrefsCache(OUTPUT_DIR),
-    // undefined,
+    // new AhrefsCache(OUTPUT_DIR),
+    undefined,
     httpClient,
   );
 
