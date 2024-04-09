@@ -22,7 +22,8 @@ class CachedFetchAPI {
      * no need to add overhead by handling custom path renames or HAR responses, support is OOTB
      * @param {Object} config - Configuration object
      * @param {string} config.cacheDirectory - Path to the cache directory
-     * @param {number} config.ttl - Time to live for cache in milliseconds set as undefined
+     * @param {number} config.ttl - Time to live for cache in milliseconds.
+     *                              Set as undefined
      * to cache indefinitely
      *
      */
@@ -48,6 +49,7 @@ class CachedFetchAPI {
      */
   async get(url, options = {}) {
     return this.call('GET', url, undefined, options);
+
   }
 
   /**
@@ -88,6 +90,7 @@ class CachedFetchAPI {
      * @param {NFCResponse} response (from a get or post call)
      * @returns {boolean}
      */
+  // eslint-disable-next-line class-methods-use-this
   isCached(response) {
     return response.returnedFromCache;
   }
@@ -105,6 +108,7 @@ export default class HttpClient {
   /**
      * @returns {CachedFetchAPI}
      */
+  // eslint-disable-next-line class-methods-use-this
   getInstance() {
     return HttpClient.instance;
   }

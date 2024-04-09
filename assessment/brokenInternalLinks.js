@@ -75,7 +75,7 @@ async function checkLink(link) {
     if (!response.ok) {
       return { link, status: response.status };
     }
-  } catch { }
+  } catch { /* empty */ }
   return null;
 }
 
@@ -91,33 +91,41 @@ async function checkForBrokenInternalLinks(url, assessment) {
   const errors = await checkInternalLinks(url, internalLinks);
   if (errors.length === 0) return;
   errors.forEach((e) => {
-    totalBrokenLinks++;
+    totalBrokenLinks += 1;
     assessment.addColumn({ url, brokenLink: e.link, statusCode: e.status });
   });
 }
 async function brokenInternalLinksAudit(assessment, params) {
-  const ahrefsClient = new AhrefsAPIClient({ apiKey: process.env.AHREFS_API_KEY }, new AhrefsCache(OUTPUT_DIR), httpClient);
-  const pageProvider = new PageProvider({ ahrefsClient });
+  const ahrefsClient = new AhrefsAPIClient({
+    apiKey: process.env.AHREFS_API_KEY,
+  }, new AhrefsCache(OUTPUT_DIR), httpClient);
+
+  const pageProvider = new PageProvider({
+    ahrefsClient,
+  });
+
   const pages = await pageProvider.getPagesOfInterest(assessment.getSite(), {}, params.topPages);
 
   if (!pages) {
     throw new Error('No results found!');
   }
 
-  for (const page of pages) {
-    if (!page) {
+  // Use Promise.all to handle all asynchronous operations concurrently
+  await Promise.all(pages.map(async (page) => {
+    if (page) {
+      const url = page.devUrl;
+      console.log(`Checking the page: ${url}`);
+
+      await checkForBrokenInternalLinks(url, assessment);
+
+      pagesChecked += 1;
+      console.log(`Pages checked so far: ${pagesChecked}`);
+    } else {
       console.error('Null page found');
-      continue; // Skip for null page
     }
+  }));
 
-    const url = page.devUrl;
-    console.log(`Checking the page: ${url}`);
-    await checkForBrokenInternalLinks(url, assessment);
-    pagesChecked++;
-    console.log(`Pages checked so far: ${pagesChecked}`);
-  }
-
-  console.log(`Top Pages checked : ${pagesChecked}`);
+  console.log(`Top Pages checked: ${pagesChecked}`);
   console.log(`Total broken internal links: ${totalBrokenLinks}`);
 }
 

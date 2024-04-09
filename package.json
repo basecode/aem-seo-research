@@ -5,6 +5,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
+    "canonical": "node ./assessment/canonical.js",
+    "sitemap": "node ./assessment/sitemap.js",
     "lint": "eslint . --fix",
     "test": "mocha --reporter spec",
     "broken-internal-links": "node ./assessment/brokenInternalLinks.js",
