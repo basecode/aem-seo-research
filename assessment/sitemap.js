@@ -12,7 +12,7 @@
 import zlib from 'zlib';
 import dotenv from 'dotenv';
 import { parseStringPromise } from 'xml2js';
-import {createAssessment, USER_AGENT} from './assessment-lib.js';
+import { createAssessment, USER_AGENT } from './assessment-lib.js';
 import HttpClient from './libs/fetch-client.js';
 
 dotenv.config();
