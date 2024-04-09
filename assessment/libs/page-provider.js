@@ -45,7 +45,8 @@ export default class PageProvider {
   }
 
   async getPagesOfInterest(site, options = {}, limit = 100) {
-    const siteAuditUrl = await composeAuditURL(site.baseURL);
+    let siteAuditUrl = await composeAuditURL(site.baseURL);
+    siteAuditUrl = siteAuditUrl.replace(/\.html$/, '');
 
     let devBaseURL;
     let hlxSiteURL;

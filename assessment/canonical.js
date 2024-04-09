@@ -187,8 +187,8 @@ export const canonical = (async () => {
       const [, value] = arg.split('=');
       options.sitemapSrc = value;
     } else {
-      console.error(`Error: Unknown option '${arg}'`);
-      process.exit(1);
+      // console.error(`Error: Unknown option '${arg}'`);
+      // process.exit(1);
     }
   });
   const assessment = await createAssessment(userSiteUrl, 'Canonical');

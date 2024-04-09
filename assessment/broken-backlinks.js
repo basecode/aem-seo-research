@@ -143,7 +143,7 @@ export const brokenBacklinks = (async () => {
       case 'onlyBacklinksInTopPages':
         options.onlyBacklinksInTopPages = value === 'true';
         break;
-      case 'devBaseUrl':
+      case 'devBaseURL':
         options.devBaseURL = value;
         break;
       case 'sitemap':
