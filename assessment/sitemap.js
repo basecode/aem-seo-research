@@ -34,6 +34,8 @@ const httpClient = new HttpClient().getInstance();
 const userSiteUrl = process.argv[2];
 
 export const getRobotsTxt = async (siteUrl) => {
+  console.log(`Fetching robots.txt for ${siteUrl}`);
+
   const defaultReturnValue = {
     sitemaps: null,
     exists: false,
@@ -336,8 +338,8 @@ export const sitemap = (async () => {
     warning: '',
   });
 
-  const sitemaps = await fetchAllPages(options.devBaseURL);
-  // const sitemaps = await fetchAllPages(userSiteUrl);
+  // const sitemaps = await fetchAllPages(options.devBaseURL);
+  const sitemaps = await fetchAllPages(userSiteUrl);
 
   // Assessment for sitemaps
   sitemaps.forEach(async (sm) => {
