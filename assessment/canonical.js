@@ -159,7 +159,7 @@ const canonicalAudit = async (siteUrl, assessment) => {
   const fetchTopPages = async (url) => ahrefsClient.getTopPages(url, options.topPages);
 
   const responseNoWWW = await fetchTopPages(auditUrl.replace(/^www\./, ''));
-  const responseWithWWW = auditUrl.startsWith('www.') ? responseNoWWW : await fetchTopPages(`www.${auditUrl}`);
+  const responseWithWWW = auditUrl.startsWith('www.') ? await fetchTopPages(auditUrl) : await fetchTopPages(`www.${auditUrl}`);
 
   const sumTraffic = (pages) => pages.reduce((acc, page) => acc + page.sum_traffic, 0);
   const totalTrafficNoWWW = sumTraffic(responseNoWWW.result.pages);
