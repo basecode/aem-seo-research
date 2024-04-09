@@ -40,15 +40,31 @@ const delay = (duration) => new Promise((resolve) => {
 const fetchWithRetry = async (url, maxRetries = 3, initialBackoff = 300) => {
   let retries = maxRetries;
   let backoff = initialBackoff;
+  let initialResponseCode = null;
 
-  const attemptFetch = async () => {
+  const attemptFetch = async (attemptUrl, followRedirect = true) => {
     try {
-      const response = await httpClient.get(url);
-      if (response.ok) {
-        const location = response.headers.get('Location');
-        // Handle redirects
-        return location || response;
+      const response = await httpClient.get(attemptUrl, { redirect: 'manual' });
+      const responseCode = response.status;
+
+      // Save the initial response code if it's the first attempt
+      if (initialResponseCode === null) {
+        initialResponseCode = responseCode;
       }
+
+      // Handle redirects manually
+      if (followRedirect && responseCode >= 300 && responseCode < 400) {
+        const location = response.headers.get('Location');
+        if (location) {
+          // Follow the redirect without allowing further redirects
+          return attemptFetch(location, false);
+        }
+      }
+
+      if (response.ok) {
+        return { response, initialResponseCode };
+      }
+
       throw new Error(`Response not OK: ${response.statusText}`);
     } catch (error) {
       if (retries > 0) {
@@ -57,52 +73,21 @@ const fetchWithRetry = async (url, maxRetries = 3, initialBackoff = 300) => {
         backoff *= 2;
         retries -= 1;
         // Recursive call
-        return attemptFetch();
+        return attemptFetch(url, followRedirect);
       }
       // Rethrow error after exhausting retries
       throw error;
     }
   };
 
-  return attemptFetch();
-};
-
-const checkForDuplicateUrl = async (url) => {
-  try {
-    const response = await httpClient.get(url);
-    return response.ok && !response.redirected;
-  } catch (error) {
-    console.error(`Failed to fetch ${url}: ${error}`);
-    return false;
-  }
-};
-
-const validateCanonicalLink = async (url, canonicalLink) => {
-  const response = await fetchWithRetry(url);
-  // If fetch failed, assume not valid
-  if (!response) return false;
-
-  const htmlContent = await response.text();
-  const dom = new JSDOM(htmlContent);
-  const { head } = dom.window.document;
-  const alternativeCanonical = head.querySelector('link[rel="canonical"]')?.href;
-
-  // Check for canonical match
-  return alternativeCanonical === canonicalLink;
-};
-
-const validateCanonicalAcrossAlternatives = async (urlAlternatives, canonicalLink) => {
-  const validationPromises = urlAlternatives.map(
-    (alternativeUrl) => validateCanonicalLink(alternativeUrl, canonicalLink),
-  );
-
-  const results = await Promise.all(validationPromises);
-  return results.every((isValid) => isValid);
+  return attemptFetch(url);
 };
 
 const checkForCanonical = async (url, sitemapUrls, assessment) => {
   try {
-    const response = await fetchWithRetry(url);
+    const { response, initialResponseCode } = await fetchWithRetry(url);
+    const finalUrl = response.url;
+    const isRedirect = url !== finalUrl;
     const contentType = response.headers.get('content-type');
 
     if (!contentType || !contentType.includes('text/html')) {
@@ -112,6 +97,7 @@ const checkForCanonical = async (url, sitemapUrls, assessment) => {
     const htmlContent = await response.text();
     const dom = new JSDOM(htmlContent);
     const canonicalLink = dom.window.document.querySelector('link[rel="canonical"]')?.href;
+    const isCanonicalMatchFinalUrl = finalUrl === canonicalLink;
 
     if (!canonicalLink) throw new Error('No canonical link found');
 
@@ -121,25 +107,30 @@ const checkForCanonical = async (url, sitemapUrls, assessment) => {
       endsWithHtml(url) ? url.slice(0, -5) : `${url}.html`,
     ];
 
-    const duplicateChecks = await Promise.all(alternatives.map(checkForDuplicateUrl));
-    const canonicalConsistency = await validateCanonicalAcrossAlternatives(alternatives.filter(
-      (_, index) => duplicateChecks[index],
-    ), canonicalLink);
+    const isCanonicalInSitemap = sitemapUrls.some((obj) => obj.page === canonicalLink);
+
+    const alternativeInSitemap = alternatives.map(
+      (alternativeUrl) => sitemapUrls.some((obj) => obj.page === alternativeUrl),
+    );
+
+    const missingCanonicalReasons = [
+      alternativeInSitemap[0] && 'WWW version in sitemap',
+      alternativeInSitemap[1] && 'Trailing slash version in sitemap',
+      alternativeInSitemap[2] && 'HTML extension version in sitemap',
+    ].filter(Boolean);
 
     const issues = [
-      !sitemapUrls.some((obj) => obj.page === canonicalLink) && 'Canonical not in sitemap',
-      containsParams(url) && 'URL contains parameters',
-      !canonicalConsistency && 'Canonical inconsistency across versions',
-      duplicateChecks[0] && 'WWW version duplicate',
-      duplicateChecks[1] && 'Trailing slash version duplicate',
-      duplicateChecks[2] && 'HTML extension version duplicate',
+      !isCanonicalInSitemap && missingCanonicalReasons.length === 0 && 'Canonical not in sitemap (Ensure the preferred canonical URL is listed in the sitemap for better search engine indexing)',
+      !isCanonicalInSitemap && missingCanonicalReasons.length > 0 && `Canonical not in sitemap, but alternative found: ${missingCanonicalReasons.join(', ')} (The sitemap contains an alternative version of the URL, which might lead to confusion for search engines)`,
+      isRedirect && !isCanonicalMatchFinalUrl && `Redirect detected: The page redirects from ${url} to ${finalUrl}, but the canonical URL is ${canonicalLink} (Ensure the canonical URL is the final destination without further redirects)`,
+      containsParams(url) && 'URL contains parameters (URL parameters can lead to duplicate content issues; review if they are essential for user navigation or if they can be handled differently)',
     ].filter(Boolean);
 
     if (issues.length > 0) {
       assessment.addColumn({
         url,
-        status: response.status,
-        issues: issues.join(', '),
+        status: initialResponseCode,
+        issues: issues.join('. '),
       });
     }
   } catch (error) {
@@ -162,6 +153,7 @@ const canonicalAudit = async (siteUrl, assessment) => {
       apiKey: process.env.AHREFS_API_KEY,
     },
     new AhrefsCache(OUTPUT_DIR),
+    httpClient,
   );
 
   const fetchTopPages = async (url) => ahrefsClient.getTopPages(url, options.topPages);
