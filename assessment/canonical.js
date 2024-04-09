@@ -191,6 +191,7 @@ export const canonical = (async () => {
       // process.exit(1);
     }
   });
+
   const assessment = await createAssessment(userSiteUrl, 'Canonical');
   assessment.setRowHeadersAndDefaults({
     url: '',

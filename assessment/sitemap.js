@@ -312,21 +312,10 @@ async function checkPage(url) {
 }
 
 export const sitemap = (async () => {
-  const assessment = await createAssessment(userSiteUrl, 'Sitemap');
-  assessment.setRowHeadersAndDefaults({
-    sitemapOrPage: '',
-    source: '',
-    locs: 0,
-    error: '',
-    warning: '',
-  });
-
   const options = {
     devBaseURL: undefined,
   };
   const args = process.argv.slice(3);
-
-  const isPositiveNumber = (value) => !Number.isNaN(value) && value > 0;
   args.forEach((arg) => {
     const [key, value] = arg.split('=');
     // eslint-disable-next-line default-case
@@ -337,6 +326,15 @@ export const sitemap = (async () => {
     }
   });
   console.log(`Running sitemap audit for ${userSiteUrl} with options: ${JSON.stringify(options)}`);
+
+  const assessment = await createAssessment(userSiteUrl, 'Sitemap');
+  assessment.setRowHeadersAndDefaults({
+    sitemapOrPage: '',
+    source: '',
+    locs: 0,
+    error: '',
+    warning: '',
+  });
 
   const sitemaps = await fetchAllPages(options.devBaseURL);
   // const sitemaps = await fetchAllPages(userSiteUrl);

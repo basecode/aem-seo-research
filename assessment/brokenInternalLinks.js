@@ -132,8 +132,6 @@ export const brokenInternalLinks = (async () => {
     devBaseURL: undefined,
   };
   const args = process.argv.slice(3);
-
-  const isPositiveNumber = (value) => !Number.isNaN(value) && value > 0;
   args.forEach((arg) => {
     const [key, value] = arg.split('=');
     // eslint-disable-next-line default-case
