@@ -34,8 +34,6 @@ const httpClient = new HttpClient().getInstance();
 const userSiteUrl = process.argv[2];
 
 export const getRobotsTxt = async (siteUrl) => {
-  console.log(`Fetching robots.txt for ${siteUrl}`);
-
   const defaultReturnValue = {
     sitemaps: null,
     exists: false,
