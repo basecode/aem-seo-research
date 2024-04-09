@@ -20,13 +20,7 @@ import { fetchAllPages } from './sitemap.js';
 import HttpClient from './libs/fetch-client.js';
 
 const PARAMS = '?';
-const userSiteUrl = process.argv[2];
 const httpClient = new HttpClient().getInstance();
-
-const options = {
-  topPages: 200,
-  sitemapSrc: undefined,
-};
 
 const startsWithWww = (url) => url.startsWith('https://www.');
 const endsWithSlash = (url) => url.endsWith('/');
@@ -141,13 +135,14 @@ const checkForCanonical = async (url, sitemapUrls, assessment) => {
   }
 };
 
-const canonicalAudit = async (siteUrl, assessment) => {
-  const auditUrl = (await composeAuditURL(siteUrl)).replace(/\.html$/, '');
+const canonicalAudit = async (options, assessment) => {
+  const { baseURL, sitemap, topPages } = options;
+  const auditUrl = (await composeAuditURL(baseURL)).replace(/\.html$/, '');
 
-  console.log(`Fetching pages on audit url ${auditUrl}, from sitemap ${options.sitemapSrc ? `provided at ${options.sitemapSrc}` : ''}`);
-  const sitemapUrls = await fetchAllPages(siteUrl, options.sitemapSrc);
+  console.log(`Fetching pages on audit url ${auditUrl}, from sitemap ${sitemap ? `provided at ${sitemap}` : ''}`);
+  const sitemapUrls = await fetchAllPages(baseURL, sitemap);
 
-  console.log(`Fetching top ${options.topPages} pages from Ahrefs`);
+  console.log(`Fetching top ${topPages} pages from Ahrefs`);
   const ahrefsClient = new AhrefsAPIClient(
     {
       apiKey: process.env.AHREFS_API_KEY,
@@ -156,7 +151,7 @@ const canonicalAudit = async (siteUrl, assessment) => {
     httpClient,
   );
 
-  const fetchTopPages = async (url) => ahrefsClient.getTopPages(url, options.topPages);
+  const fetchTopPages = async (url) => ahrefsClient.getTopPages(url, topPages);
 
   const responseNoWWW = await fetchTopPages(auditUrl.replace(/^www\./, ''));
   const responseWithWWW = auditUrl.startsWith('www.') ? await fetchTopPages(auditUrl) : await fetchTopPages(`www.${auditUrl}`);
@@ -172,40 +167,21 @@ const canonicalAudit = async (siteUrl, assessment) => {
   return Promise.all(canonicalCheckPromises);
 };
 
-export const canonical = (async () => {
-  process.argv.slice(3).forEach((arg) => {
-    if (arg.startsWith('top-pages=')) {
-      const [, value] = arg.split('=');
-      const number = parseInt(value, 10);
-      if (Number.isNaN(number) || number <= 0) {
-        console.log('Defaulting to top 200 pages');
-        options.topPages = 200;
-      } else {
-        options.topPages = number;
-      }
-    } else if (arg.startsWith('sitemap=')) {
-      const [, value] = arg.split('=');
-      options.sitemapSrc = value;
-    } else {
-      // console.error(`Error: Unknown option '${arg}'`);
-      // process.exit(1);
-    }
-  });
-
-  const assessment = await createAssessment(userSiteUrl, 'Canonical');
+export const canonical = async (options) => {
+  const { baseURL } = options;
+  const assessment = await createAssessment(baseURL, 'Canonical');
   assessment.setRowHeadersAndDefaults({
     url: '',
     issues: '',
     error: '',
   });
-  await canonicalAudit(userSiteUrl, assessment);
+  await canonicalAudit(options, assessment);
   if (assessment.getRows().length === 0) {
     console.log('No issues found');
     assessment.addColumn({
-      url: userSiteUrl,
+      url: baseURL,
       error: 'No issues found',
     });
   }
   assessment.end();
-  process.exit(0);
-})();
+};

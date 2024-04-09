@@ -5,13 +5,13 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "canonical": "node ./assessment/canonical.js",
-    "sitemap": "node ./assessment/sitemap.js",
+    "canonical": "node ./all-assessments.js audit=canonical",
+    "sitemap": "node ./all-assessments.js audit=sitemap",
     "lint": "eslint . --fix",
     "test": "mocha --reporter spec",
-    "broken-internal-links": "node ./assessment/brokenInternalLinks.js",
-    "broken-backlinks": "node ./assessment/broken-backlinks.js",
-    "all": "node all-assessments.js"
+    "broken-internal-links": "node ./all-assessments.js audit=broken-internal-links",
+    "broken-backlinks": "node ./all-assessments.js audit=broken-backlinks",
+    "all": "node all-assessments.js audit=all"
   },
   "repository": {
     "type": "git",

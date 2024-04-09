@@ -41,7 +41,7 @@ async function filterOutValidBacklinks(backlinks, log) {
   return backlinks.filter((_, index) => backlinkStatuses[index]);
 }
 
-export const brokenBacklinksAudit = async (assessment, userSiteUrl, options, log = console) => {
+export const brokenBacklinksAudit = async (assessment, options, log = console) => {
   // TODO: these could be outside of the audit function,
   //  since it's just retrieving information about the site that
   //  the audit should get as input parameters
@@ -114,46 +114,11 @@ export const brokenBacklinksAudit = async (assessment, userSiteUrl, options, log
   });
 };
 
-export const brokenBacklinks = (async () => {
-  const userSiteUrl = process.argv[2];
+export const brokenBacklinks = async (options) => {
+  const { baseURL } = options;
+  console.log(`Running broken backlinks audit for ${baseURL} with options: ${JSON.stringify(options)}`);
 
-  const options = {
-    topPages: 200,
-    topBacklinks: 200,
-    onlyBacklinksInTopPages: true,
-    devBaseURL: undefined,
-    sitemap: undefined,
-  };
-  const args = process.argv.slice(3);
-  const isPositiveNumber = (value) => !Number.isNaN(value) && value > 0;
-  args.forEach((arg) => {
-    const [key, value] = arg.split('=');
-    // eslint-disable-next-line default-case
-    switch (key) {
-      case 'topPages': {
-        const topPages = parseInt(value, 10);
-        options.topPages = isPositiveNumber(topPages) ? topPages : options.topPages;
-        break;
-      }
-      case 'topBacklinks': {
-        const topBacklinks = parseInt(value, 10);
-        options.topBacklinks = isPositiveNumber(topBacklinks) ? topBacklinks : options.topBacklinks;
-        break;
-      }
-      case 'onlyBacklinksInTopPages':
-        options.onlyBacklinksInTopPages = value === 'true';
-        break;
-      case 'devBaseURL':
-        options.devBaseURL = value;
-        break;
-      case 'sitemap':
-        options.sitemap = value;
-        break;
-    }
-  });
-  console.log(`Running broken backlinks audit for ${userSiteUrl} with options: ${JSON.stringify(options)}`);
-
-  const assessment = await createAssessment(userSiteUrl, 'Broken Backlinks');
+  const assessment = await createAssessment(baseURL, 'Broken Backlinks');
   assessment.setRowHeadersAndDefaults({
     original_url: '',
     url: '',
@@ -162,8 +127,7 @@ export const brokenBacklinks = (async () => {
     url_from: '',
   });
 
-  await brokenBacklinksAudit(assessment, userSiteUrl, options);
+  await brokenBacklinksAudit(assessment, options);
 
   assessment.end();
-  process.exit(0);
-})();
+};

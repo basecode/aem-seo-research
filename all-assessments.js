@@ -14,9 +14,79 @@ import { sitemap } from './assessment/sitemap.js';
 import { brokenInternalLinks } from './assessment/brokenInternalLinks.js';
 import { brokenBacklinks } from './assessment/broken-backlinks.js';
 
+const audits = {
+  canonical,
+  brokenInternalLinks,
+  brokenBacklinks,
+  sitemap,
+};
+
+const options = {
+  baseURL: undefined,
+  topPages: 200,
+  topBacklinks: 200,
+  onlyBacklinksInTopPages: true,
+  devBaseURL: undefined,
+  sitemap: undefined,
+};
+
+const runAudit = async (auditType) => {
+  if (audits[auditType]) {
+    await audits[auditType](options);
+  } else {
+    console.error(`Unknown audit type: ${auditType}`);
+  }
+};
+
+const runAllAudits = async () => {
+  const auditFunctions = Object.values(audits);
+  await auditFunctions.reduce(async (previousAudit, currentAudit) => {
+    await previousAudit;
+    return currentAudit(options);
+  }, Promise.resolve());
+};
+
+const parseArgs = (args) => {
+  const [, baseURL] = args;
+  options.baseURL = baseURL;
+  const isPositiveNumber = (value) => !Number.isNaN(value) && value > 0;
+  args.forEach((arg) => {
+    const [key, value] = arg.split('=');
+    // eslint-disable-next-line default-case
+    switch (key) {
+      case 'topPages': {
+        const topPages = parseInt(value, 10);
+        options.topPages = isPositiveNumber(topPages) ? topPages : options.topPages;
+        break;
+      }
+      case 'topBacklinks': {
+        const topBacklinks = parseInt(value, 10);
+        options.topBacklinks = isPositiveNumber(topBacklinks) ? topBacklinks : options.topBacklinks;
+        break;
+      }
+      case 'onlyBacklinksInTopPages':
+        options.onlyBacklinksInTopPages = value === 'true';
+        break;
+      case 'devBaseURL':
+        options.devBaseURL = value;
+        break;
+      case 'sitemap':
+        options.sitemap = value;
+        break;
+    }
+  });
+};
+
 (async () => {
-  await sitemap;
-  await canonical;
-  await brokenInternalLinks;
-  await brokenBacklinks;
+  const args = process.argv.slice(2);
+  const auditArg = args.find((arg) => arg.startsWith('audit='));
+  const auditType = auditArg ? auditArg.split('=')[1] : null;
+  parseArgs(args);
+
+  if (auditType && auditType !== 'all') {
+    await runAudit(auditType);
+  } else {
+    await runAllAudits();
+  }
+  process.exit(0);
 })();

@@ -159,7 +159,7 @@ export async function checkRobotsForSitemap(protocol, domain) {
  * representing the success and reasons for the sitemap search and validation.
  */
 
-export async function findSitemap(inputUrl) {
+export async function findSitemaps(inputUrl) {
   const parsedUrl = extractDomainAndProtocol(inputUrl);
   if (!parsedUrl) {
     console.error(ERROR_CODES.INVALID_URL);
@@ -288,7 +288,7 @@ export async function fetchAllPages(url, sitemapSrc) {
       new URL(sitemapSrc, `${protocol}://${domain}`).toString(), 'user provided',
     ]);
   }
-  const sitemaps = await findSitemap(url);
+  const sitemaps = await findSitemaps(url);
   if (!sitemaps.success) return [];
   return fetchSitemapsFromSource(sitemaps.paths, sitemaps.source);
 }
@@ -311,23 +311,11 @@ async function checkPage(url) {
   return { errors, warnings };
 }
 
-export const sitemap = (async () => {
-  const options = {
-    devBaseURL: undefined,
-  };
-  const args = process.argv.slice(3);
-  args.forEach((arg) => {
-    const [key, value] = arg.split('=');
-    // eslint-disable-next-line default-case
-    switch (key) {
-      case 'devBaseURL':
-        options.devBaseURL = value;
-        break;
-    }
-  });
-  console.log(`Running sitemap audit for ${userSiteUrl} with options: ${JSON.stringify(options)}`);
+export const sitemap = async (options) => {
+  const { baseURL } = options;
+  console.log(`Running sitemap audit for ${baseURL} with options: ${JSON.stringify(options)}`);
 
-  const assessment = await createAssessment(userSiteUrl, 'Sitemap');
+  const assessment = await createAssessment(baseURL, 'Sitemap');
   assessment.setRowHeadersAndDefaults({
     sitemapOrPage: '',
     source: '',
@@ -337,7 +325,7 @@ export const sitemap = (async () => {
   });
 
   // const sitemaps = await fetchAllPages(options.devBaseURL);
-  const sitemaps = await fetchAllPages(userSiteUrl);
+  const sitemaps = await fetchAllPages(baseURL);
 
   // Assessment for sitemaps
   sitemaps.forEach(async (sm) => {
@@ -365,4 +353,4 @@ export const sitemap = (async () => {
   await Promise.all(promises);
 
   assessment.end();
-})();
+};

@@ -126,26 +126,12 @@ async function brokenInternalLinksAudit(assessment, options) {
   console.log(`Total broken internal links: ${totalBrokenLinks}`);
 }
 
-export const brokenInternalLinks = (async () => {
-  const options = {
-    topPages: 200, // default number of pages to check
-    devBaseURL: undefined,
-  };
-  const args = process.argv.slice(3);
-  args.forEach((arg) => {
-    const [key, value] = arg.split('=');
-    // eslint-disable-next-line default-case
-    switch (key) {
-      case 'devBaseURL':
-        options.devBaseURL = value;
-        break;
-    }
-  });
-  console.log(`Running broken internal links audit for ${userSiteUrl} with options: ${JSON.stringify(options)}`);
+export const brokenInternalLinks = async (options) => {
+  const { baseURL } = options;
+  console.log(`Running broken internal links audit for ${baseURL} with options: ${JSON.stringify(options)}`);
 
-  const assessment = await createAssessment(userSiteUrl, 'Broken Internal Links');
+  const assessment = await createAssessment(baseURL, 'Broken Internal Links');
   assessment.setRowHeadersAndDefaults({ url: '', brokenLink: '', statusCode: '' });
   await brokenInternalLinksAudit(assessment, options);
   assessment.end();
-  process.exit(0);
-})();
+};
