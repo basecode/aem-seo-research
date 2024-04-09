@@ -13,8 +13,9 @@ import zlib from 'zlib';
 import dotenv from 'dotenv';
 
 import { parseStringPromise } from 'xml2js';
-import { createAssessment  } from './assessment-lib.js';
+import { createAssessment } from './assessment-lib.js';
 import HttpClient from './libs/fetch-client.js';
+import { prodToDevUrl } from './libs/page-provider.js';
 
 dotenv.config();
 
@@ -311,6 +312,21 @@ async function checkPage(url) {
 }
 
 export const sitemap = (async () => {
+  const options = {
+    devBaseURL: undefined,
+  };
+  const args = process.argv.slice(3);
+  args.forEach((arg) => {
+    const [key, value] = arg.split('=');
+    // eslint-disable-next-line default-case
+    switch (key) {
+      case 'devBaseURL':
+        options.devBaseURL = value;
+        break;
+    }
+  });
+  console.log(`Running sitemap audit for ${userSiteUrl} with options: ${JSON.stringify(options)}`);
+
   const assessment = await createAssessment(userSiteUrl, 'Sitemap');
   assessment.setRowHeadersAndDefaults({
     sitemapOrPage: '',
@@ -320,6 +336,7 @@ export const sitemap = (async () => {
     warning: '',
   });
 
+  // const sitemaps = await fetchAllPages(options.devBaseURL);
   const sitemaps = await fetchAllPages(userSiteUrl);
 
   // Assessment for sitemaps

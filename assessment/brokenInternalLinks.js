@@ -23,10 +23,6 @@ const userSiteUrl = process.argv[2];
 let totalBrokenLinks = 0;
 let pagesChecked = 0;
 
-const defaultOptions = {
-  topPages: 200, // default number of pages to check
-};
-
 async function fetchInternalLinks(pageUrl) {
   try {
     const response = await httpClient.get(pageUrl);
@@ -95,16 +91,17 @@ async function checkForBrokenInternalLinks(url, assessment) {
     assessment.addColumn({ url, brokenLink: e.link, statusCode: e.status });
   });
 }
-async function brokenInternalLinksAudit(assessment, params) {
+async function brokenInternalLinksAudit(assessment, options) {
   const ahrefsClient = new AhrefsAPIClient({
     apiKey: process.env.AHREFS_API_KEY,
-  }, new AhrefsCache(OUTPUT_DIR), httpClient);
+  }, undefined, httpClient);
 
   const pageProvider = new PageProvider({
     ahrefsClient,
   });
 
-  const pages = await pageProvider.getPagesOfInterest(assessment.getSite(), {}, params.topPages);
+  const pages = await pageProvider
+    .getPagesOfInterest(assessment.getSite(), options, options.topPages);
 
   if (!pages) {
     throw new Error('No results found!');
@@ -130,9 +127,25 @@ async function brokenInternalLinksAudit(assessment, params) {
 }
 
 export const brokenInternalLinks = (async () => {
+  const options = {
+    topPages: 200, // default number of pages to check
+    devBaseURL: undefined,
+  };
+  const args = process.argv.slice(3);
+  args.forEach((arg) => {
+    const [key, value] = arg.split('=');
+    // eslint-disable-next-line default-case
+    switch (key) {
+      case 'devBaseURL':
+        options.devBaseURL = value;
+        break;
+    }
+  });
+  console.log(`Running broken internal links audit for ${userSiteUrl} with options: ${JSON.stringify(options)}`);
+
   const assessment = await createAssessment(userSiteUrl, 'Broken Internal Links');
   assessment.setRowHeadersAndDefaults({ url: '', brokenLink: '', statusCode: '' });
-  await brokenInternalLinksAudit(assessment, defaultOptions);
+  await brokenInternalLinksAudit(assessment, options);
   assessment.end();
   process.exit(0);
 })();

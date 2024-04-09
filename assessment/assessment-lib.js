@@ -39,7 +39,8 @@ export const createAssessment = async (siteUrl, userTitle) => {
     { apiBaseUrl: SPACECAT_API_BASE_URL, apiKey: process.env.SPACECAT_API_KEY },
   );
   const site = await spaceCatSdk.getSite(siteUrl);
-  const siteAuditUrl = await composeAuditURL(site.baseURL);
+  let siteAuditUrl = await composeAuditURL(site.baseURL);
+  siteAuditUrl = siteAuditUrl.replace(/\.html$/, '');
   const reportFilePath = path.join(OUTPUT_DIR, `${generateFileName(siteAuditUrl, userTitle)}-${Date.now()}.csv`);
   console.log(`${userTitle}: Assessment for ${siteAuditUrl}`);
 
