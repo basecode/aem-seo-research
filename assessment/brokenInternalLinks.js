@@ -13,13 +13,10 @@
 import { JSDOM } from 'jsdom';
 import { createAssessment } from './assessment-lib.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
-import AhrefsCache from './libs/ahrefs-cache.js';
-import { OUTPUT_DIR } from './file-lib.js';
 import HttpClient from './libs/fetch-client.js';
 import PageProvider from './libs/page-provider.js';
 
 const httpClient = new HttpClient().getInstance();
-const userSiteUrl = process.argv[2];
 let totalBrokenLinks = 0;
 let pagesChecked = 0;
 

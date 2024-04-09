@@ -15,7 +15,6 @@ import dotenv from 'dotenv';
 import { parseStringPromise } from 'xml2js';
 import { createAssessment } from './assessment-lib.js';
 import HttpClient from './libs/fetch-client.js';
-import { prodToDevUrl } from './libs/page-provider.js';
 
 dotenv.config();
 
@@ -31,7 +30,6 @@ export const ERROR_CODES = {
 };
 
 const httpClient = new HttpClient().getInstance();
-const userSiteUrl = process.argv[2];
 
 export const getRobotsTxt = async (siteUrl) => {
   const defaultReturnValue = {

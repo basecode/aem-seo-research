@@ -49,7 +49,6 @@ class CachedFetchAPI {
      */
   async get(url, options = {}) {
     return this.call('GET', url, undefined, options);
-
   }
 
   /**
