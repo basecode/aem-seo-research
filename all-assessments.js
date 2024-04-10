@@ -9,14 +9,14 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
-import {canonical} from './assessment/canonical.js';
-import {sitemap} from './assessment/sitemap.js';
-import {brokenInternalLinks} from './assessment/brokenInternalLinks.js';
-import {brokenBacklinks} from './assessment/broken-backlinks.js';
-import fs from "fs";
-import {OUTPUT_DIR} from "./assessment/file-lib.js";
-import SpaceCatSdk from "spacecat-sdk/src/sdk.js";
-import {SPACECAT_API_BASE_URL} from "./assessment/libs/assessment-lib.js";
+import fs from 'fs';
+import SpaceCatSdk from 'spacecat-sdk/src/sdk.js';
+import { canonical } from './assessment/canonical.js';
+import { sitemap } from './assessment/sitemap.js';
+import { brokenInternalLinks } from './assessment/brokenInternalLinks.js';
+import { brokenBacklinks } from './assessment/broken-backlinks.js';
+import { OUTPUT_DIR } from './assessment/file-lib.js';
+import { SPACECAT_API_BASE_URL } from './assessment/libs/assessment-lib.js';
 
 const audits = {
   canonical,
