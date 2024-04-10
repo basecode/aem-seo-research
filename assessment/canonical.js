@@ -77,66 +77,75 @@ const fetchWithRetry = async (url, maxRetries = 3, initialBackoff = 300) => {
   return attemptFetch(url);
 };
 
-const checkForCanonical = async (url, sitemapUrls, assessment) => {
+const checkForCanonical = async (url, sitemapUrls, assessment, devBaseURL) => {
+  const path = new URL(url).pathname;
+  const fetchURL = devBaseURL ? new URL(path, devBaseURL).href : url;
+
   try {
-    const { response, initialResponseCode } = await fetchWithRetry(url);
+    const { response, initialResponseCode } = await fetchWithRetry(fetchURL);
     const finalUrl = response.url;
-    const isRedirect = url !== finalUrl;
+    const finalPath = new URL(finalUrl).pathname;
+    const isRedirect = initialResponseCode >= 300 && initialResponseCode < 400;
     const contentType = response.headers.get('content-type');
 
     if (!contentType || !contentType.includes('text/html')) {
-      throw new Error('Not an HTML page');
+      // Skip non-HTML content
+      return;
     }
 
     const htmlContent = await response.text();
     const dom = new JSDOM(htmlContent);
-    const canonicalLink = dom.window.document.querySelector('link[rel="canonical"]')?.href;
-    const isCanonicalMatchFinalUrl = finalUrl === canonicalLink;
+    const canonicalLinkElement = dom.window.document.querySelector('link[rel="canonical"]');
+    const canonicalLink = canonicalLinkElement ? new URL(canonicalLinkElement.href, finalUrl).href : null;
+    const canonicalPath = canonicalLink ? new URL(canonicalLink).pathname : null;
+    const isCanonicalMatchFinalUrl = devBaseURL ? finalPath === canonicalPath : finalUrl === canonicalLink;
 
     if (!canonicalLink) throw new Error('No canonical link found');
 
-    const alternatives = [
+    const alternatives = devBaseURL ? [] : [
       startsWithWww(url) ? url.replace('https://www.', 'https://') : `https://www.${url.slice(8)}`,
       endsWithSlash(url) ? url.slice(0, -1) : `${url}/`,
       endsWithHtml(url) ? url.slice(0, -5) : `${url}.html`,
     ];
 
-    const isCanonicalInSitemap = sitemapUrls.some((obj) => obj.page === canonicalLink);
+    const isCanonicalInSitemap = sitemapUrls.some((obj) => (devBaseURL ? new URL(obj.page).pathname === canonicalPath : obj.page === canonicalLink));
 
     const alternativeInSitemap = alternatives.map(
       (alternativeUrl) => sitemapUrls.some((obj) => obj.page === alternativeUrl),
     );
 
-    const missingCanonicalReasons = [
+    const missingCanonicalReasons = devBaseURL ? [] : [
       alternativeInSitemap[0] && 'WWW version in sitemap',
       alternativeInSitemap[1] && 'Trailing slash version in sitemap',
       alternativeInSitemap[2] && 'HTML extension version in sitemap',
     ].filter(Boolean);
 
     const issues = [
-      !isCanonicalInSitemap && missingCanonicalReasons.length === 0 && 'Canonical not in sitemap (Ensure the preferred canonical URL is listed in the sitemap for better search engine indexing)',
+      !devBaseURL && !isCanonicalInSitemap && missingCanonicalReasons.length === 0 && 'Canonical not in sitemap (Ensure the preferred canonical URL is listed in the sitemap for better search engine indexing)',
       !isCanonicalInSitemap && missingCanonicalReasons.length > 0 && `Canonical not in sitemap, but alternative found: ${missingCanonicalReasons.join(', ')} (The sitemap contains an alternative version of the URL, which might lead to confusion for search engines)`,
       isRedirect && !isCanonicalMatchFinalUrl && `Redirect detected: The page redirects from ${url} to ${finalUrl}, but the canonical URL is ${canonicalLink} (Ensure the canonical URL is the final destination without further redirects)`,
-      containsParams(url) && 'URL contains parameters (URL parameters can lead to duplicate content issues; review if they are essential for user navigation or if they can be handled differently)',
+      containsParams(finalUrl) && 'URL contains parameters (URL parameters can lead to duplicate content issues; review if they are essential for user navigation or if they can be handled differently)',
     ].filter(Boolean);
 
     if (issues.length > 0) {
       assessment.addColumn({
-        url,
+        url: fetchURL,
         status: initialResponseCode,
         issues: issues.join('. '),
       });
     }
   } catch (error) {
     assessment.addColumn({
-      url,
+      url: fetchURL,
       error: error.message,
     });
   }
 };
 
 const canonicalAudit = async (options, assessment) => {
-  const { baseURL, sitemap, topPages } = options;
+  const {
+    baseURL, devBaseURL, sitemap, topPages,
+  } = options;
   const auditUrl = (await composeAuditURL(baseURL)).replace(/\.html$/, '');
 
   console.log(`Fetching pages on audit url ${auditUrl}, from sitemap ${sitemap ? `provided at ${sitemap}` : ''}`);
@@ -163,12 +172,12 @@ const canonicalAudit = async (options, assessment) => {
 
   const canonicalCheckPromises = response.result.pages
     .filter((page) => page.url)
-    .map((page) => checkForCanonical(page.url, sitemapUrls, assessment));
+    .map((page) => checkForCanonical(page.url, sitemapUrls.filter((sitemapUrl) => sitemapUrl.page), assessment, devBaseURL));
   return Promise.all(canonicalCheckPromises);
 };
 
 export const canonical = async (options) => {
-  const { baseURL } = options;
+  const { baseURL, devBaseURL } = options;
   const assessment = await createAssessment(baseURL, 'Canonical');
   assessment.setRowHeadersAndDefaults({
     url: '',
@@ -179,7 +188,7 @@ export const canonical = async (options) => {
   if (assessment.getRows().length === 0) {
     console.log('No issues found');
     assessment.addColumn({
-      url: baseURL,
+      url: devBaseURL || baseURL,
       error: 'No issues found',
     });
   }
