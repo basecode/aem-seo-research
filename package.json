@@ -30,13 +30,14 @@
   "homepage": "https://github.com/basecode/aem-seo-research#readme",
   "dependencies": {
     "@adobe/spacecat-shared-utils": "1.14.2",
+    "spacecat-audit-worker": "https://gitpkg.now.sh/adobe/spacecat-audit-worker?ahrefs-top-pages-backlinks",
     "axios": "^1.6.7",
     "dotenv": "^16.4.1",
     "jsdom": "^24.0.0",
     "json-2-csv": "^5.5.1",
     "node-fetch": "3.3.2",
-    "spacecat-sdk": "https://gitpkg.now.sh/adobe/spacecat-shared/packages/spacecat-shared-sdk?spacecat-sdk",
     "node-fetch-cache": "4.1.0",
+    "spacecat-sdk": "https://gitpkg.now.sh/adobe/spacecat-shared/packages/spacecat-shared-sdk?spacecat-sdk",
     "xml2js": "^0.6.2",
     "zlib": "^1.0.5"
   },

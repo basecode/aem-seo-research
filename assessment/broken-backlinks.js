@@ -12,20 +12,20 @@
 
 import dotenv from 'dotenv';
 import { composeAuditURL } from '@adobe/spacecat-shared-utils';
+import AhrefsAPIClient from 'spacecat-audit-worker/src/support/ahrefs-client.js';
 import { createAssessment } from './assessment-lib.js';
-import AhrefsAPIClient from './libs/ahrefs-client.js';
 import { gitHubURLToHlxSite, prodToDevUrl } from './libs/page-provider.js';
 import HttpClient from './libs/fetch-client.js';
 
 dotenv.config();
 
-const httpClient = new HttpClient().getInstance();
+const httpClient = HttpClient.getInstance();
 
 // TODO: reusable fragment copied from https://github.com/adobe/spacecat-audit-worker/blob/main/src/backlinks/handler.js#L21-L38
 async function filterOutValidBacklinks(backlinks, log) {
   const isStillBrokenBacklink = async (backlink) => {
     try {
-      const response = await httpClient.get(backlink.url_to);
+      const response = await httpClient.fetch(backlink.url_to);
       if (!response.ok && response.status !== 404
         && response.status >= 400 && response.status < 500) {
         log.warn(`Backlink ${backlink.url_to} returned status ${response.status}`);
@@ -41,53 +41,36 @@ async function filterOutValidBacklinks(backlinks, log) {
   return backlinks.filter((_, index) => backlinkStatuses[index]);
 }
 
-export const brokenBacklinksAudit = async (assessment, userSiteUrl, options, log = console) => {
-  // TODO: these could be outside of the audit function,
-  //  since it's just retrieving information about the site that
-  //  the audit should get as input parameters
-  const site = assessment.getSite();
-  const siteAuditUrl = assessment.getSiteAuditUrl();
-
-  let devBaseURL;
-  let hlxSiteURL;
-  if (options.devBaseURL) {
-    devBaseURL = await composeAuditURL(options.devBaseURL);
-  } else if (site.gitHubURL) {
-    hlxSiteURL = await gitHubURLToHlxSite(site.gitHubURL);
-  }
-
-  const ahrefsClient = new AhrefsAPIClient(
-    { apiKey: process.env.AHREFS_API_KEY },
-    // new AhrefsCache(OUTPUT_DIR),
-    undefined,
-    httpClient,
-  );
-
+export const brokenBacklinksAudit = async (options, log = console) => {
+  const { ahrefsClient } = options;
   const topBacklinksResponse = await ahrefsClient
-    .getBacklinks(siteAuditUrl, options.topBacklinks);
+    .getBacklinks(options.siteAuditUrl, options.topBacklinks);
   let topBacklinks = topBacklinksResponse?.result?.backlinks;
 
   if (!topBacklinks || topBacklinks.length === 0) {
-    log.warn(`No backlinks found for the site URL ${siteAuditUrl}`);
-    return;
+    log.warn(`No backlinks found for the site URL: ${options.siteAuditUrl}`);
+    return [];
   }
+  log.info(`${topBacklinks.length} backlinks found for the site URL: ${options.siteAuditUrl}: ${topBacklinks[0]}`);
 
   let topPagesUrls;
   if (options.onlyBacklinksInTopPages) {
     const topPagesResponse = await ahrefsClient
-      .getTopPages(siteAuditUrl, options.topPages);
+      .getTopPages(options.siteAuditUrl, options.topPages);
     if (!topPagesResponse?.result?.pages
       || topPagesResponse?.result?.pages.length === 0) {
-      log.warn(`No top pages found for the site URL ${siteAuditUrl}`);
-      return;
+      log.warn(`No top pages found for the site URL: ${options.siteAuditUrl}`);
+      return [];
     }
     topPagesUrls = topPagesResponse.result.pages.map((page) => page.url);
+    log.info(`${topPagesUrls.length} top pages found for the site URL: ${options.siteAuditUrl}: ${topPagesUrls[0]}`);
   }
 
   // filter out backlinks that are not top pages
   if (options.onlyBacklinksInTopPages) {
     topBacklinks = topBacklinks
       .filter((backlink) => topPagesUrls.includes(backlink.url_to));
+    log.info(`${topBacklinks.length} backlinks after filtering by top pages for the site URL: ${options.siteAuditUrl}`);
   }
 
   topBacklinks = topBacklinks
@@ -95,23 +78,14 @@ export const brokenBacklinksAudit = async (assessment, userSiteUrl, options, log
       ...backlink,
       original_url_to: backlink.url_to,
       url_to: prodToDevUrl(backlink.url_to, {
-        hlxSiteURL,
-        devBaseURL,
+        hlxSiteURL: options.hlxSiteURL,
+        devBaseURL: options.devBaseURL,
       }),
     }));
 
-  const brokenBacklinks = await filterOutValidBacklinks(topBacklinks, log);
-
-  // TODO: this could be outside of the audit function, since it's just formatting stuff
-  brokenBacklinks.forEach((backlink) => {
-    assessment.addColumn({
-      original_url: backlink.original_url_to,
-      url: backlink.url_to,
-      source: 'ahrefs',
-      title: backlink.title,
-      url_from: backlink.url_from,
-    });
-  });
+  const realBrokenBacklinks = await filterOutValidBacklinks(topBacklinks, log);
+  log.info(`${realBrokenBacklinks.length} backlinks after filtering out valid ones for the site URL: ${options.siteAuditUrl}`);
+  return realBrokenBacklinks;
 };
 
 export const brokenBacklinks = (async () => {
@@ -151,7 +125,6 @@ export const brokenBacklinks = (async () => {
         break;
     }
   });
-  console.log(`Running broken backlinks audit for ${userSiteUrl} with options: ${JSON.stringify(options)}`);
 
   const assessment = await createAssessment(userSiteUrl, 'Broken Backlinks');
   assessment.setRowHeadersAndDefaults({
@@ -162,7 +135,32 @@ export const brokenBacklinks = (async () => {
     url_from: '',
   });
 
-  await brokenBacklinksAudit(assessment, userSiteUrl, options);
+  const site = assessment.getSite();
+  options.siteAuditUrl = assessment.getSiteAuditUrl();
+
+  if (options.devBaseURL) {
+    options.devBaseURL = await composeAuditURL(options.devBaseURL);
+  } else if (site.gitHubURL) {
+    options.hlxSiteURL = await gitHubURLToHlxSite(site.gitHubURL);
+  }
+
+  console.log(`Running broken backlinks audit for ${userSiteUrl} with options: ${JSON.stringify(options)}`);
+
+  options.ahrefsClient = new AhrefsAPIClient({
+    apiKey: process.env.AHREFS_API_KEY,
+    apiBaseUrl: 'https://api.ahrefs.com/v3',
+  }, httpClient.getFetch());
+
+  const brokenBacklinksResult = await brokenBacklinksAudit(options);
+  brokenBacklinksResult.forEach((backlink) => {
+    assessment.addColumn({
+      original_url: backlink.original_url_to,
+      url: backlink.url_to,
+      source: 'ahrefs',
+      title: backlink.title,
+      url_from: backlink.url_from,
+    });
+  });
 
   assessment.end();
   process.exit(0);

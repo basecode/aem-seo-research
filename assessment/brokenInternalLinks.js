@@ -11,21 +11,19 @@
  */
 
 import { JSDOM } from 'jsdom';
+import AhrefsAPIClient from 'spacecat-audit-worker/src/support/ahrefs-client.js';
 import { createAssessment } from './assessment-lib.js';
-import AhrefsAPIClient from './libs/ahrefs-client.js';
-import AhrefsCache from './libs/ahrefs-cache.js';
-import { OUTPUT_DIR } from './file-lib.js';
 import HttpClient from './libs/fetch-client.js';
 import PageProvider from './libs/page-provider.js';
 
-const httpClient = new HttpClient().getInstance();
+const httpClient = HttpClient.getInstance();
 const userSiteUrl = process.argv[2];
 let totalBrokenLinks = 0;
 let pagesChecked = 0;
 
 async function fetchInternalLinks(pageUrl) {
   try {
-    const response = await httpClient.get(pageUrl);
+    const response = await httpClient.fetch(pageUrl);
     if (!response.ok) {
       return [];
     }
@@ -67,7 +65,7 @@ async function fetchInternalLinks(pageUrl) {
 
 async function checkLink(link) {
   try {
-    const response = await httpClient.get(link);
+    const response = await httpClient.fetch(link);
     if (!response.ok) {
       return { link, status: response.status };
     }
@@ -94,7 +92,8 @@ async function checkForBrokenInternalLinks(url, assessment) {
 async function brokenInternalLinksAudit(assessment, options) {
   const ahrefsClient = new AhrefsAPIClient({
     apiKey: process.env.AHREFS_API_KEY,
-  }, undefined, httpClient);
+    apiBaseUrl: 'https://api.ahrefs.com/v3',
+  }, httpClient.getFetch());
 
   const pageProvider = new PageProvider({
     ahrefsClient,

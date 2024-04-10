@@ -21,9 +21,8 @@ import HttpClient from './assessment/libs/fetch-client.js';
 
 dotenv.config();
 
-const httpClient = new HttpClient().getInstance();
+const httpClient = HttpClient.getInstance();
 
-const userAgentHeader = { headers: { 'User-Agent': 'basecode/seo-research-crawler/1.0' } };
 const visitedSitemaps = [];
 
 const REPORTS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'reports');
@@ -109,7 +108,7 @@ async function fetchSitemapUrls(siteUrl) {
           report(siteUrl, `Found Sitemap in Index: ${sitemapIndexUrl}`);
 
           // Create a fetch promise and add it to the array
-          const fetchPromise = httpClient.get(sitemapIndexUrl, userAgentHeader)
+          const fetchPromise = httpClient.fetch(sitemapIndexUrl)
             .then((response) => {
               if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
                 report(siteUrl, `Error in ${sitemapIndexUrl}, Status: ${response.status}, Content-Type: ${response.headers.get('content-type')}, Source: ${source}`);
@@ -143,7 +142,7 @@ async function fetchSitemapUrls(siteUrl) {
 
   // Check robots.txt for the sitemap URL(s)
   try {
-    const robotsResponse = await httpClient.get(new URL('robots.txt', siteUrl).toString(), userAgentHeader);
+    const robotsResponse = await httpClient.fetch(new URL('robots.txt', siteUrl).toString());
     if (robotsResponse.ok) {
       const robotsTxt = await robotsResponse.text();
       const robotsSitemapUrls = parseRobotsTxt(robotsTxt);
@@ -154,7 +153,7 @@ async function fetchSitemapUrls(siteUrl) {
             return; // Skip already visited sitemaps
           }
           report(siteUrl, `Found Sitemap in robots.txt: ${robotsSitemapUrl}`);
-          const response = await httpClient.get(robotsSitemapUrl, userAgentHeader);
+          const response = await httpClient.fetch(robotsSitemapUrl);
           if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
             report(siteUrl, `Sitemap not found at ${robotsSitemapUrl}`);
           } else if (response.headers.get('content-type').includes('application/x-gzip')) {
@@ -180,7 +179,7 @@ async function fetchSitemapUrls(siteUrl) {
 
   // Fetch and parse the default sitemap if no sitemap URL is found in robots.txt
   try {
-    const response = await httpClient.get(sitemapUrl, userAgentHeader);
+    const response = await httpClient.fetch(sitemapUrl);
     if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
       report(siteUrl, `Sitemap not found at ${sitemapUrl}`);
     } else {

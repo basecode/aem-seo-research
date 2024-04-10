@@ -12,16 +12,14 @@
 
 import { JSDOM } from 'jsdom';
 import { composeAuditURL } from '@adobe/spacecat-shared-utils';
+import AhrefsAPIClient from 'spacecat-audit-worker/src/support/ahrefs-client.js';
 import { createAssessment } from './assessment-lib.js';
-import AhrefsCache from './libs/ahrefs-cache.js';
-import AhrefsAPIClient from './libs/ahrefs-client.js';
-import { OUTPUT_DIR } from './file-lib.js';
 import { fetchAllPages } from './sitemap.js';
 import HttpClient from './libs/fetch-client.js';
 
 const PARAMS = '?';
 const userSiteUrl = process.argv[2];
-const httpClient = new HttpClient().getInstance();
+const httpClient = HttpClient.getInstance();
 
 const options = {
   topPages: 200,
@@ -44,7 +42,7 @@ const fetchWithRetry = async (url, maxRetries = 3, initialBackoff = 300) => {
 
   const attemptFetch = async (attemptUrl, followRedirect = true) => {
     try {
-      const response = await httpClient.get(attemptUrl, { redirect: 'manual' });
+      const response = await httpClient.fetch(attemptUrl, { redirect: 'manual' });
       const responseCode = response.status;
 
       // Save the initial response code if it's the first attempt
@@ -148,13 +146,10 @@ const canonicalAudit = async (siteUrl, assessment) => {
   const sitemapUrls = await fetchAllPages(siteUrl, options.sitemapSrc);
 
   console.log(`Fetching top ${options.topPages} pages from Ahrefs`);
-  const ahrefsClient = new AhrefsAPIClient(
-    {
-      apiKey: process.env.AHREFS_API_KEY,
-    },
-    new AhrefsCache(OUTPUT_DIR),
-    httpClient,
-  );
+  const ahrefsClient = new AhrefsAPIClient({
+    apiKey: process.env.AHREFS_API_KEY,
+    apiBaseUrl: 'https://api.ahrefs.com/v3',
+  }, httpClient.getFetch());
 
   const fetchTopPages = async (url) => ahrefsClient.getTopPages(url, options.topPages);
 

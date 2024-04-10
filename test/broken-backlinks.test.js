@@ -20,9 +20,7 @@ import nock from 'nock';
 import SpaceCatSdk from 'spacecat-sdk/src/sdk.js';
 import fs from 'fs';
 import path from 'path';
-import { createAssessment } from '../assessment/assessment-lib.js';
 import { brokenBacklinksAudit } from '../assessment/broken-backlinks.js';
-import AhrefsAPIClient from '../assessment/libs/ahrefs-client.js';
 import { ROOT_DIR } from '../assessment/file-lib.js';
 
 chai.use(sinonChai);
@@ -30,15 +28,23 @@ chai.use(chaiAsPromised);
 const { expect } = chai;
 
 describe('brokenBacklinksAudit', () => {
-  const options = { topPages: 1, topBacklinks: 1 };
   const site = {
     baseURL: 'https://space.dog',
     gitHubURL: 'https://github.com/hlxsites/spacedog',
   };
   const sandbox = sinon.createSandbox();
   const spaceCatSdkGetSiteStub = sandbox.stub(SpaceCatSdk.prototype, 'getSite');
-  const getBacklinksStub = sandbox.stub(AhrefsAPIClient.prototype, 'getBacklinks');
-  const getTopPagesStub = sandbox.stub(AhrefsAPIClient.prototype, 'getTopPages');
+  const ahrefsClientStub = {
+    getBacklinks: sandbox.stub(),
+    getTopPages: sandbox.stub(),
+  };
+  const options = {
+    topPages: 1,
+    topBacklinks: 1,
+    ahrefsClient: ahrefsClientStub,
+    hlxSiteURL: 'main--spacedog--hlxsites.hlx.live',
+    siteAuditUrl: 'www.space.dog',
+  };
 
   beforeEach(() => {
     spaceCatSdkGetSiteStub.resolves(site);
@@ -57,19 +63,15 @@ describe('brokenBacklinksAudit', () => {
   });
 
   it('should handle no backlinks found', async () => {
-    const assessment = await createAssessment('https://space.dog', 'Broken Backlinks');
+    ahrefsClientStub.getBacklinks.resolves({ result: { backlinks: [] } });
 
-    getBacklinksStub.resolves({ result: { backlinks: [] } });
-
-    await brokenBacklinksAudit(assessment, site.baseURL, options);
-    expect(assessment.getRows()).to.be.empty;
+    const results = await brokenBacklinksAudit(options);
+    expect(results).to.be.empty;
   });
 
   it('should handle no top pages found', async () => {
-    const assessment = await createAssessment('https://space.dog', 'Broken Backlinks');
-
-    getBacklinksStub.resolves({ result: { backlinks: [{ url_to: 'https://www.space.dog/how-to-chase-a-cat' }] } });
-    getTopPagesStub.resolves({ result: { pages: [] } });
+    ahrefsClientStub.getBacklinks.resolves({ result: { backlinks: [{ url_to: 'https://www.space.dog/how-to-chase-a-cat' }] } });
+    ahrefsClientStub.getTopPages.resolves({ result: { pages: [] } });
 
     nock('https://main--spacedog--hlxsites.hlx.live')
       .get('/how-to-chase-a-cat')
@@ -77,51 +79,46 @@ describe('brokenBacklinksAudit', () => {
 
     options.onlyBacklinksInTopPages = true;
 
-    await brokenBacklinksAudit(assessment, site.baseURL, options);
-    expect(assessment.getRows()).to.be.empty;
+    const results = await brokenBacklinksAudit(options);
+    expect(results).to.be.empty;
   });
 
   it('should handle valid backlinks', async () => {
-    const assessment = await createAssessment('https://space.dog', 'Broken Backlinks');
-
-    getBacklinksStub.resolves({ result: { backlinks: [{ url_to: 'https://www.space.dog/how-to-chase-a-cat' }] } });
-    getTopPagesStub.resolves({ result: { pages: [{ url: 'https://www.space.dog/how-to-chase-a-cat' }] } });
+    ahrefsClientStub.getBacklinks.resolves({ result: { backlinks: [{ url_to: 'https://www.space.dog/how-to-chase-a-cat' }] } });
+    ahrefsClientStub.getTopPages.resolves({ result: { pages: [{ url: 'https://www.space.dog/how-to-chase-a-cat' }] } });
 
     nock('https://main--spacedog--hlxsites.hlx.live')
       .get('/how-to-chase-a-cat')
       .reply(200);
 
-    await brokenBacklinksAudit(assessment, site.baseURL, options);
-    expect(assessment.getRows()).to.be.empty;
+    const results = await brokenBacklinksAudit(options);
+    expect(results).to.be.empty;
   });
 
   it('should handle broken backlinks', async () => {
-    const assessment = await createAssessment('https://space.dog', 'Broken Backlinks');
-
     const backlink = {
       url_to: 'https://www.space.dog/how-to-float-around-your-tail',
       url_from: 'https://www.tutorials.dog/space-dogs-101',
       title: 'What every space dog should know',
     };
-    getBacklinksStub.resolves({
+    ahrefsClientStub.getBacklinks.resolves({
       result: {
         backlinks: [backlink],
       },
     });
-    getTopPagesStub.resolves({ result: { pages: [{ url: 'https://www.space.dog/how-to-float-around-your-tail' }] } });
+    ahrefsClientStub.getTopPages.resolves({ result: { pages: [{ url: 'https://www.space.dog/how-to-float-around-your-tail' }] } });
 
     nock('https://main--spacedog--hlxsites.hlx.live')
       .get('/how-to-float-around-your-tail')
       .reply(404);
 
-    await brokenBacklinksAudit(assessment, site.baseURL, options);
-    expect(assessment.getRows()).to.have.lengthOf(1);
-    expect(assessment.getRows()[0]).to.deep.equal({
-      original_url: backlink.url_to,
-      url: 'https://main--spacedog--hlxsites.hlx.live/how-to-float-around-your-tail',
-      source: 'ahrefs',
+    const results = await brokenBacklinksAudit(options);
+    expect(results).to.have.lengthOf(1);
+    expect(results[0]).to.deep.equal({
+      original_url_to: backlink.url_to,
       title: backlink.title,
       url_from: backlink.url_from,
+      url_to: 'https://main--spacedog--hlxsites.hlx.live/how-to-float-around-your-tail',
     });
   });
 });
