@@ -41,13 +41,13 @@ async function checkNoIndexMetaTag(url) {
 
 async function excludeSidekickAudit(mainUrl, assessment) {
   try {
-    const response = await httpClient.get(`${mainUrl}/tools/sidekick/config.json`);
-    const out = await response.json();
+    let response = await httpClient.get(`${mainUrl}/tools/sidekick/config.json`);
+    let out = await response.json();
     const { plugins } = out;
     const firstPlugin = plugins[0];
     const { url } = firstPlugin;
     const urlTocheck = mainUrl + url;
-    const hasNoIndex = await checkNoIndexMetaTag(urlTocheck);
+    let hasNoIndex = await checkNoIndexMetaTag(urlTocheck);
     if (hasNoIndex) {
       console.log(`The page ${urlTocheck} has noindex meta tag set.`);
       assessment.addColumn({
@@ -61,8 +61,32 @@ async function excludeSidekickAudit(mainUrl, assessment) {
         hasNoIndex: 'noindex is not set',
       });
     }
+    //if we came up to tha point we can also check if the blocs themselves have noindex set
+    response = await httpClient.get(`${mainUrl}/sidekick/library.json`);
+    out = await response.json();
+    const blocksData = out.blocks.data;
+
+    // Applying a function to each path inside the "blocks" object
+    blocksData.forEach(async block => {
+      // Perform your function on each block's path
+    console.log(block.path);
+    hasNoIndex = await checkNoIndexMetaTag(block.path);
+    if (hasNoIndex) {
+      console.log(`The page ${block.path} has noindex meta tag set.`);
+      assessment.addColumn({
+          url: block.path,
+          hasNoIndex: 'noindex is set',
+        });
+      } else {
+        console.log(`The page ${block.path} does not have noindex meta tag set.`);
+        assessment.addColumn({
+          url: urlTocheck,
+          hasNoIndex: 'noindex is not set',
+        });
+      }
+    });
   } catch (error) {
-    console.error('The config.json was not found or an error occurred:', error);
+    console.error('The config.json or the library.json was not found or an error occurred:', error);
   }
 }
 
