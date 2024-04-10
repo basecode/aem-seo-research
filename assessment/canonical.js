@@ -134,14 +134,14 @@ const checkForCanonical = async (url, sitemapUrls, assessment, devBaseURL) => {
     ].filter(Boolean);
 
     if (issues.length > 0) {
-      assessment.addColumn({
+      assessment.addRow({
         url: fetchURL,
         status: initialResponseCode,
         issues: issues.join('. '),
       });
     }
   } catch (error) {
-    assessment.addColumn({
+    assessment.addRow({
       url: fetchURL,
       error: error.message,
     });
@@ -200,7 +200,7 @@ export const canonical = async (options) => {
   await canonicalAudit(options, assessment);
   if (assessment.getRows().length === 0) {
     console.log('No issues found');
-    assessment.addColumn({
+    assessment.addRow({
       url: devBaseURL || baseURL,
       error: 'No issues found',
     });

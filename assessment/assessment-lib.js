@@ -56,8 +56,7 @@ export const createAssessment = async (siteUrl, userTitle) => {
     setRowHeadersAndDefaults(arg) {
       rowHeadersAndDefaults = arg;
     },
-    // TODO: should be addRow actually...
-    addColumn(column) {
+    addRow(column) {
       const merge = { ...rowHeadersAndDefaults, ...column };
       csvContent.push(merge);
     },

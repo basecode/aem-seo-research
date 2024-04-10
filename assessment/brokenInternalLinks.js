@@ -85,7 +85,7 @@ async function checkForBrokenInternalLinks(url, assessment) {
   if (errors.length === 0) return;
   errors.forEach((e) => {
     totalBrokenLinks += 1;
-    assessment.addColumn({ url, brokenLink: e.link, statusCode: e.status });
+    assessment.addRow({ url, brokenLink: e.link, statusCode: e.status });
   });
 }
 async function brokenInternalLinksAudit(assessment, options) {

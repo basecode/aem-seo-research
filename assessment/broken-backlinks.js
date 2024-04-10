@@ -104,7 +104,7 @@ export const brokenBacklinksAudit = async (assessment, options, log = console) =
 
   // TODO: this could be outside of the audit function, since it's just formatting stuff
   brokenBacklinks.forEach((backlink) => {
-    assessment.addColumn({
+    assessment.addRow({
       original_url: backlink.original_url_to,
       url: backlink.url_to,
       source: 'ahrefs',

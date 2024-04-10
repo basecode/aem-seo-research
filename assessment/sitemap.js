@@ -328,7 +328,7 @@ export const sitemap = async (options) => {
   // Assessment for sitemaps
   sitemaps.forEach(async (sm) => {
     if (sm.url) {
-      assessment.addColumn({
+      assessment.addRow({
         sitemapOrPage: sm.url, source: sm.source, locs: sm.locs, error: sm.error || '', warning: sm.warning || '',
       });
     }
@@ -342,7 +342,7 @@ export const sitemap = async (options) => {
     .map(async (item) => {
       const { errors, warnings } = await checkPage(item.page);
       if (errors.length > 0 || warnings.length > 0) {
-        assessment.addColumn({
+        assessment.addRow({
           sitemapOrPage: item.page, source: item.source, error: errors.join(', '), warning: warnings.join(', '),
         });
       }
