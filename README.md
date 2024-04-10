@@ -15,6 +15,9 @@ Run `npm install` to install dependencies.
 
 `npm run all <baseURL> [options]`
 
+This will create a CSV file for each assessment in the `output` folder with the results.
+The results are summarized in a `summary.csv` file.
+
 ## How to trigger sitemap assessment
 
 `npm run sitemap <baseUrl>`

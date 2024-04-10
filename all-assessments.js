@@ -11,6 +11,8 @@
  */
 import fs from 'fs';
 import SpaceCatSdk from 'spacecat-sdk/src/sdk.js';
+import { json2csv } from 'json-2-csv';
+import path from 'path';
 import { canonical } from './assessment/canonical.js';
 import { sitemap } from './assessment/sitemap.js';
 import { brokenInternalLinks } from './assessment/brokenInternalLinks.js';
@@ -45,10 +47,14 @@ const runAudit = async (auditType) => {
 
 const runAllAudits = async () => {
   const auditFunctions = Object.values(audits);
-  await auditFunctions.reduce(async (previousAudit, currentAudit) => {
-    await previousAudit;
-    return currentAudit(options);
-  }, Promise.resolve());
+  const results = [];
+
+  for (const auditFunction of auditFunctions) {
+    // eslint-disable-next-line no-await-in-loop
+    const result = await auditFunction(options);
+    results.push(result);
+  }
+  return results;
 };
 
 const parseArgs = (args) => {
@@ -95,6 +101,17 @@ const setup = async () => {
   options.site = await spaceCatSdk.getSite(options.baseURL);
 };
 
+const createSummary = async (results) => {
+  const summary = results.map((result) => ({
+    auditType: result.auditType,
+    totalIssues: result.amountOfIssues,
+    report: result.location,
+  }));
+  const csv = json2csv(summary);
+  const summaryFilePath = path.join(OUTPUT_DIR, `summary-${Date.now()}.csv`);
+  fs.writeFileSync(summaryFilePath, csv);
+};
+
 (async () => {
   const args = process.argv.slice(2);
   const auditArg = args.find((arg) => arg.startsWith('audit='));
@@ -106,7 +123,8 @@ const setup = async () => {
   if (auditType && auditType !== 'all') {
     await runAudit(auditType);
   } else {
-    await runAllAudits();
+    const result = await runAllAudits();
+    await createSummary(result);
   }
   process.exit(0);
 })();

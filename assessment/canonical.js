@@ -191,7 +191,8 @@ const canonicalAudit = async (options, assessment) => {
 
 export const canonical = async (options) => {
   const { site, baseURL, devBaseURL } = options;
-  const assessment = await Assessment.create(site, 'Canonical Audit');
+  const title = 'Canonical Audit';
+  const assessment = await Assessment.create(site, title);
   assessment.setRowHeadersAndDefaults({
     url: '',
     issues: '',
@@ -206,4 +207,9 @@ export const canonical = async (options) => {
     });
   }
   assessment.end();
+  return {
+    auditType: title,
+    amountOfIssues: assessment.getRows().length,
+    location: assessment.reportFilePath,
+  };
 };

@@ -125,10 +125,16 @@ async function brokenInternalLinksAudit(assessment, options) {
 
 export const brokenInternalLinks = async (options) => {
   const { baseURL } = options;
+  const title = 'Broken Internal Links';
   console.log(`Running broken internal links audit for ${baseURL} with options: ${JSON.stringify(options)}`);
 
-  const assessment = await Assessment.create(options.site, 'Broken Internal Links');
+  const assessment = await Assessment.create(options.site, title);
   assessment.setRowHeadersAndDefaults({ url: '', brokenLink: '', statusCode: '' });
   await brokenInternalLinksAudit(assessment, options);
   assessment.end();
+  return {
+    auditType: title,
+    amountOfIssues: assessment.getRows().length,
+    location: assessment.reportFilePath,
+  };
 };

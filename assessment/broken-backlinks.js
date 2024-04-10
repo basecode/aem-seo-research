@@ -116,9 +116,10 @@ export const brokenBacklinksAudit = async (assessment, options, log = console) =
 
 export const brokenBacklinks = async (options) => {
   const { baseURL } = options;
+  const title = 'Broken Backlinks';
   console.log(`Running broken backlinks audit for ${baseURL} with options: ${JSON.stringify(options)}`);
 
-  const assessment = await Assessment.create(options.site, 'Broken Backlinks');
+  const assessment = await Assessment.create(options.site, title);
   assessment.setRowHeadersAndDefaults({
     original_url: '',
     url: '',
@@ -130,4 +131,9 @@ export const brokenBacklinks = async (options) => {
   await brokenBacklinksAudit(assessment, options);
 
   assessment.end();
+  return {
+    auditType: title,
+    amountOfIssues: assessment.getRows().length,
+    location: assessment.reportFilePath,
+  };
 };

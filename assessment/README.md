@@ -12,14 +12,18 @@
 2. Copy `/assessment/sitemap.js` or use the boilerplate
    ```
    export const boilderplate = async (options) => {
-      const { baseURL } = options;
-      const assessment = await createAssessment(baseURL, 'Boilderplate Audit');
+      const { site, baseURL } = options;
+      const assessment = await Assessment.create(site, 'Boilderplate Audit');
+
+      // Set the row headers and default values, can be adjusted as needed for the specific assessment
       assessment.setRowHeadersAndDefaults({
          url: '',
          issues: '',
          error: '',
       });
+
       await audit(options, assessment);
+
       assessment.end();  
    }
    ```
