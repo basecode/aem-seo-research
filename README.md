@@ -42,6 +42,8 @@ Options:
   /sitemap.xml), especially useful for page in development as they are not listed yet in the robots.txt or sitemap_index.xml,
  to use instead of the top pages from Ahrefs
 
+These options will only be used by their relevant assessments.
+
 The backlinks will be checked on the development environment, if a `devBaseURL` is provided (with priority) or an 
 `gitHubURL` is set in SpaceCat for the site. If none of these are set, the backlinks will be checked on the 
 production environment, as inferred from the `baseURL` of the site in SpaceCat.
