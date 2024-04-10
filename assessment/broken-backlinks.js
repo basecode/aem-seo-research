@@ -12,7 +12,7 @@
 
 import dotenv from 'dotenv';
 import { composeAuditURL } from '@adobe/spacecat-shared-utils';
-import { createAssessment } from './assessment-lib.js';
+import Assessment from './libs/assessment-lib.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
 import { gitHubURLToHlxSite, prodToDevUrl } from './libs/page-provider.js';
 import HttpClient from './libs/fetch-client.js';
@@ -118,7 +118,7 @@ export const brokenBacklinks = async (options) => {
   const { baseURL } = options;
   console.log(`Running broken backlinks audit for ${baseURL} with options: ${JSON.stringify(options)}`);
 
-  const assessment = await createAssessment(baseURL, 'Broken Backlinks');
+  const assessment = await Assessment.create(options.site, 'Broken Backlinks');
   assessment.setRowHeadersAndDefaults({
     original_url: '',
     url: '',

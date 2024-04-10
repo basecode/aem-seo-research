@@ -11,7 +11,7 @@
  */
 
 import { JSDOM } from 'jsdom';
-import { createAssessment } from './assessment-lib.js';
+import Assessment from './libs/assessment-lib.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
 import HttpClient from './libs/fetch-client.js';
 import PageProvider from './libs/page-provider.js';
@@ -127,7 +127,7 @@ export const brokenInternalLinks = async (options) => {
   const { baseURL } = options;
   console.log(`Running broken internal links audit for ${baseURL} with options: ${JSON.stringify(options)}`);
 
-  const assessment = await createAssessment(baseURL, 'Broken Internal Links');
+  const assessment = await Assessment.create(options.site, 'Broken Internal Links');
   assessment.setRowHeadersAndDefaults({ url: '', brokenLink: '', statusCode: '' });
   await brokenInternalLinksAudit(assessment, options);
   assessment.end();

@@ -13,7 +13,7 @@ import zlib from 'zlib';
 import dotenv from 'dotenv';
 
 import { parseStringPromise } from 'xml2js';
-import { createAssessment } from './assessment-lib.js';
+import Assessment from './libs/assessment-lib.js';
 import HttpClient from './libs/fetch-client.js';
 
 dotenv.config();
@@ -310,10 +310,10 @@ async function checkPage(url) {
 }
 
 export const sitemap = async (options) => {
-  const { baseURL } = options;
+  const { site, baseURL } = options;
   console.log(`Running sitemap audit for ${baseURL} with options: ${JSON.stringify(options)}`);
 
-  const assessment = await createAssessment(baseURL, 'Sitemap');
+  const assessment = await Assessment.create(site, 'Sitemap');
   assessment.setRowHeadersAndDefaults({
     sitemapOrPage: '',
     source: '',

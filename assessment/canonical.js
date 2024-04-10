@@ -12,7 +12,7 @@
 
 import { JSDOM } from 'jsdom';
 import { composeAuditURL } from '@adobe/spacecat-shared-utils';
-import { createAssessment } from './assessment-lib.js';
+import Assessment from './libs/assessment-lib.js';
 import AhrefsCache from './libs/ahrefs-cache.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
 import { OUTPUT_DIR } from './file-lib.js';
@@ -190,8 +190,8 @@ const canonicalAudit = async (options, assessment) => {
 };
 
 export const canonical = async (options) => {
-  const { baseURL, devBaseURL } = options;
-  const assessment = await createAssessment(baseURL, 'Canonical');
+  const { site, baseURL, devBaseURL } = options;
+  const assessment = await Assessment.create(site, 'Canonical Audit');
   assessment.setRowHeadersAndDefaults({
     url: '',
     issues: '',

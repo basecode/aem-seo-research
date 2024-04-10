@@ -9,10 +9,14 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
-import { canonical } from './assessment/canonical.js';
-import { sitemap } from './assessment/sitemap.js';
-import { brokenInternalLinks } from './assessment/brokenInternalLinks.js';
-import { brokenBacklinks } from './assessment/broken-backlinks.js';
+import {canonical} from './assessment/canonical.js';
+import {sitemap} from './assessment/sitemap.js';
+import {brokenInternalLinks} from './assessment/brokenInternalLinks.js';
+import {brokenBacklinks} from './assessment/broken-backlinks.js';
+import fs from "fs";
+import {OUTPUT_DIR} from "./assessment/file-lib.js";
+import SpaceCatSdk from "spacecat-sdk/src/sdk.js";
+import {SPACECAT_API_BASE_URL} from "./assessment/libs/assessment-lib.js";
 
 const audits = {
   canonical,
@@ -22,6 +26,7 @@ const audits = {
 };
 
 const options = {
+  site: undefined,
   baseURL: undefined,
   topPages: 200,
   topBacklinks: 200,
@@ -77,11 +82,26 @@ const parseArgs = (args) => {
   });
 };
 
+const setup = async () => {
+  // Ensure the output directory exists
+  if (!fs.existsSync(OUTPUT_DIR)) {
+    fs.mkdirSync(OUTPUT_DIR);
+  }
+
+  console.log('Check if URL is qualified to be assessed. Needs to be part of spacecat catalogue');
+  const spaceCatSdk = new SpaceCatSdk(
+    { apiBaseUrl: SPACECAT_API_BASE_URL, apiKey: process.env.SPACECAT_API_KEY },
+  );
+  options.site = await spaceCatSdk.getSite(options.baseURL);
+};
+
 (async () => {
   const args = process.argv.slice(2);
   const auditArg = args.find((arg) => arg.startsWith('audit='));
   const auditType = auditArg ? auditArg.split('=')[1] : null;
   parseArgs(args);
+
+  await setup();
 
   if (auditType && auditType !== 'all') {
     await runAudit(auditType);

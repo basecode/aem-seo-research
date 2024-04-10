@@ -20,7 +20,7 @@ import nock from 'nock';
 import SpaceCatSdk from 'spacecat-sdk/src/sdk.js';
 import fs from 'fs';
 import path from 'path';
-import { createAssessment } from '../assessment/assessment-lib.js';
+import { createAssessment } from '../assessment/libs/assessment-lib.js';
 import { brokenBacklinksAudit } from '../assessment/broken-backlinks.js';
 import AhrefsAPIClient from '../assessment/libs/ahrefs-client.js';
 import { ROOT_DIR } from '../assessment/file-lib.js';
