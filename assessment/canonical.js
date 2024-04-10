@@ -96,9 +96,9 @@ const checkForCanonical = async (url, sitemapUrls, assessment, devBaseURL) => {
     const htmlContent = await response.text();
     const dom = new JSDOM(htmlContent);
     const canonicalLinkElement = dom.window.document.querySelector('link[rel="canonical"]');
-    const canonicalLink = canonicalLinkElement ? new URL(canonicalLinkElement.href, finalUrl).href : null;
+    const canonicalBaseURL = canonicalLinkElement ? canonicalLinkElement.href : finalUrl;
+    const canonicalLink = canonicalLinkElement ? new URL(canonicalBaseURL, finalUrl).href : null;
     const canonicalPath = canonicalLink ? new URL(canonicalLink).pathname : null;
-    const isCanonicalMatchFinalUrl = devBaseURL ? finalPath === canonicalPath : finalUrl === canonicalLink;
 
     if (!canonicalLink) throw new Error('No canonical link found');
 
@@ -108,7 +108,13 @@ const checkForCanonical = async (url, sitemapUrls, assessment, devBaseURL) => {
       endsWithHtml(url) ? url.slice(0, -5) : `${url}.html`,
     ];
 
-    const isCanonicalInSitemap = sitemapUrls.some((obj) => (devBaseURL ? new URL(obj.page).pathname === canonicalPath : obj.page === canonicalLink));
+    const isCanonicalInSitemap = sitemapUrls.some(
+      (obj) => (
+        devBaseURL ? new URL(obj.page).pathname === canonicalPath : obj.page === canonicalLink
+      ),
+    );
+
+    const canonicalMatch = devBaseURL ? finalPath === canonicalPath : finalUrl === canonicalLink;
 
     const alternativeInSitemap = alternatives.map(
       (alternativeUrl) => sitemapUrls.some((obj) => obj.page === alternativeUrl),
@@ -123,7 +129,7 @@ const checkForCanonical = async (url, sitemapUrls, assessment, devBaseURL) => {
     const issues = [
       !devBaseURL && !isCanonicalInSitemap && missingCanonicalReasons.length === 0 && 'Canonical not in sitemap (Ensure the preferred canonical URL is listed in the sitemap for better search engine indexing)',
       !isCanonicalInSitemap && missingCanonicalReasons.length > 0 && `Canonical not in sitemap, but alternative found: ${missingCanonicalReasons.join(', ')} (The sitemap contains an alternative version of the URL, which might lead to confusion for search engines)`,
-      isRedirect && !isCanonicalMatchFinalUrl && `Redirect detected: The page redirects from ${url} to ${finalUrl}, but the canonical URL is ${canonicalLink} (Ensure the canonical URL is the final destination without further redirects)`,
+      isRedirect && !canonicalMatch && `Redirect detected: The page redirects from ${url} to ${finalUrl}, but the canonical URL is ${canonicalLink} (Ensure the canonical URL is the final destination without further redirects)`,
       containsParams(finalUrl) && 'URL contains parameters (URL parameters can lead to duplicate content issues; review if they are essential for user navigation or if they can be handled differently)',
     ].filter(Boolean);
 
@@ -172,7 +178,14 @@ const canonicalAudit = async (options, assessment) => {
 
   const canonicalCheckPromises = response.result.pages
     .filter((page) => page.url)
-    .map((page) => checkForCanonical(page.url, sitemapUrls.filter((sitemapUrl) => sitemapUrl.page), assessment, devBaseURL));
+    .map((page) => checkForCanonical(
+      page.url,
+      sitemapUrls.filter(
+        (sitemapUrl) => sitemapUrl.page,
+      ),
+      assessment,
+      devBaseURL,
+    ));
   return Promise.all(canonicalCheckPromises);
 };
 
