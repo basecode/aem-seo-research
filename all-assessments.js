@@ -17,7 +17,7 @@ import { canonical } from './assessment/canonical.js';
 import { sitemap } from './assessment/sitemap.js';
 import { brokenInternalLinks } from './assessment/brokenInternalLinks.js';
 import { brokenBacklinks } from './assessment/broken-backlinks.js';
-import { OUTPUT_DIR } from './assessment/file-lib.js';
+import { OUTPUT_DIR, sanitizeFilename } from './assessment/file-lib.js';
 import { SPACECAT_API_BASE_URL } from './assessment/libs/assessment-lib.js';
 
 const audits = {
@@ -47,14 +47,13 @@ const runAudit = async (auditType) => {
 
 const runAllAudits = async () => {
   const auditFunctions = Object.values(audits);
-  const results = [];
 
-  for (const auditFunction of auditFunctions) {
-    // eslint-disable-next-line no-await-in-loop
+  return auditFunctions.reduce(async (accPromise, auditFunction) => {
+    const acc = await accPromise;
     const result = await auditFunction(options);
-    results.push(result);
-  }
-  return results;
+    acc.push(result);
+    return acc;
+  }, Promise.resolve([]));
 };
 
 const parseArgs = (args) => {
@@ -108,7 +107,7 @@ const createSummary = async (results) => {
     report: result.location,
   }));
   const csv = json2csv(summary);
-  const summaryFilePath = path.join(OUTPUT_DIR, `summary-${Date.now()}.csv`);
+  const summaryFilePath = path.join(OUTPUT_DIR, `summary-${sanitizeFilename(options.baseURL)}-${Date.now()}.csv`);
   fs.writeFileSync(summaryFilePath, csv);
 };
 
