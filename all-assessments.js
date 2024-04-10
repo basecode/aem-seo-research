@@ -12,11 +12,11 @@
 import { canonical } from './assessment/canonical.js';
 import { sitemap } from './assessment/sitemap.js';
 import { brokenInternalLinks } from './assessment/brokenInternalLinks.js';
-import { brokenBacklinksAssessment } from './assessment/broken-backlinks.js';
+import { brokenBacklinks } from './assessment/broken-backlinks.js';
 
 (async () => {
   await sitemap;
   await canonical;
   await brokenInternalLinks;
-  await brokenBacklinksAssessment;
+  await brokenBacklinks;
 })();
