@@ -16,9 +16,11 @@ import path from 'path';
 import { canonical } from './assessment/canonical.js';
 import { sitemap } from './assessment/sitemap.js';
 import { brokenInternalLinks } from './assessment/brokenInternalLinks.js';
-import { brokenBacklinks } from './assessment/broken-backlinks.js';
+import { brokenBacklinks } from './assessment/brokenBacklinks.js';
 import { OUTPUT_DIR, sanitizeFilename } from './assessment/file-lib.js';
 import { SPACECAT_API_BASE_URL } from './assessment/libs/assessment-lib.js';
+import { gitHubURLToHlxSite } from './assessment/libs/page-provider.js';
+import {composeAuditURL} from "@adobe/spacecat-shared-utils";
 
 const audits = {
   canonical,
@@ -35,6 +37,8 @@ const options = {
   onlyBacklinksInTopPages: true,
   devBaseURL: undefined,
   sitemap: undefined,
+  siteAuditURL: undefined,
+  devAuditURL: undefined,
 };
 
 const runAudit = async (auditType) => {
@@ -98,6 +102,13 @@ const setup = async () => {
     { apiBaseUrl: SPACECAT_API_BASE_URL, apiKey: process.env.SPACECAT_API_KEY },
   );
   options.site = await spaceCatSdk.getSite(options.baseURL);
+  options.hlxSiteURL = await gitHubURLToHlxSite(options.site.gitHubURL);
+
+  const siteAuditUrl = await composeAuditURL(options.site.baseURL);
+  options.siteAuditURL = siteAuditUrl.replace(/\.html$/, '');
+  if (options.devBaseURL) {
+    options.devAuditURL = await composeAuditURL(options.devBaseURL);
+  }
 };
 
 const createSummary = async (results) => {

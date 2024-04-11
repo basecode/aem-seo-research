@@ -42,19 +42,9 @@ async function filterOutValidBacklinks(backlinks, log) {
 }
 
 export const brokenBacklinksAudit = async (assessment, options, log = console) => {
-  // TODO: these could be outside of the audit function,
-  //  since it's just retrieving information about the site that
-  //  the audit should get as input parameters
-  const site = assessment.getSite();
-  const siteAuditUrl = assessment.getSiteAuditUrl();
-
-  let devBaseURL;
-  let hlxSiteURL;
-  if (options.devBaseURL) {
-    devBaseURL = await composeAuditURL(options.devBaseURL);
-  } else if (site.gitHubURL) {
-    hlxSiteURL = await gitHubURLToHlxSite(site.gitHubURL);
-  }
+  const {
+    hlxSiteURL, siteAuditURL, devAuditURL,
+  } = options;
 
   const ahrefsClient = new AhrefsAPIClient(
     { apiKey: process.env.AHREFS_API_KEY },
@@ -64,21 +54,21 @@ export const brokenBacklinksAudit = async (assessment, options, log = console) =
   );
 
   const topBacklinksResponse = await ahrefsClient
-    .getBacklinks(siteAuditUrl, options.topBacklinks);
+    .getBacklinks(siteAuditURL, options.topBacklinks);
   let topBacklinks = topBacklinksResponse?.result?.backlinks;
 
   if (!topBacklinks || topBacklinks.length === 0) {
-    log.warn(`No backlinks found for the site URL ${siteAuditUrl}`);
+    log.warn(`No backlinks found for the site URL ${siteAuditURL}`);
     return;
   }
 
   let topPagesUrls;
   if (options.onlyBacklinksInTopPages) {
     const topPagesResponse = await ahrefsClient
-      .getTopPages(siteAuditUrl, options.topPages);
+      .getTopPages(siteAuditURL, options.topPages);
     if (!topPagesResponse?.result?.pages
       || topPagesResponse?.result?.pages.length === 0) {
-      log.warn(`No top pages found for the site URL ${siteAuditUrl}`);
+      log.warn(`No top pages found for the site URL ${siteAuditURL}`);
       return;
     }
     topPagesUrls = topPagesResponse.result.pages.map((page) => page.url);
@@ -96,7 +86,7 @@ export const brokenBacklinksAudit = async (assessment, options, log = console) =
       original_url_to: backlink.url_to,
       url_to: prodToDevUrl(backlink.url_to, {
         hlxSiteURL,
-        devBaseURL,
+        devAuditURL,
       }),
     }));
 
@@ -119,7 +109,7 @@ export const brokenBacklinks = async (options) => {
   const title = 'Broken Backlinks';
   console.log(`Running broken backlinks audit for ${baseURL} with options: ${JSON.stringify(options)}`);
 
-  const assessment = await Assessment.create(options.site, title);
+  const assessment = new Assessment(options, title);
   assessment.setRowHeadersAndDefaults({
     original_url: '',
     url: '',

@@ -150,11 +150,10 @@ const checkForCanonical = async (url, sitemapUrls, assessment, devBaseURL) => {
 
 const canonicalAudit = async (options, assessment) => {
   const {
-    baseURL, devBaseURL, sitemap, topPages,
+    baseURL, devBaseURL, siteAuditURL, sitemap, topPages,
   } = options;
-  const auditUrl = (await composeAuditURL(baseURL)).replace(/\.html$/, '');
 
-  console.log(`Fetching pages on audit url ${auditUrl}, from sitemap ${sitemap ? `provided at ${sitemap}` : ''}`);
+  console.log(`Fetching pages on audit url ${siteAuditURL}, from sitemap ${sitemap ? `provided at ${sitemap}` : ''}`);
   const sitemapUrls = await fetchAllPages(baseURL, sitemap);
 
   console.log(`Fetching top ${topPages} pages from Ahrefs`);
@@ -168,8 +167,8 @@ const canonicalAudit = async (options, assessment) => {
 
   const fetchTopPages = async (url) => ahrefsClient.getTopPages(url, topPages);
 
-  const responseNoWWW = await fetchTopPages(auditUrl.replace(/^www\./, ''));
-  const responseWithWWW = auditUrl.startsWith('www.') ? await fetchTopPages(auditUrl) : await fetchTopPages(`www.${auditUrl}`);
+  const responseNoWWW = await fetchTopPages(siteAuditURL.replace(/^www\./, ''));
+  const responseWithWWW = siteAuditURL.startsWith('www.') ? await fetchTopPages(siteAuditURL) : await fetchTopPages(`www.${siteAuditURL}`);
 
   const sumTraffic = (pages) => pages.reduce((acc, page) => acc + page.sum_traffic, 0);
   const totalTrafficNoWWW = sumTraffic(responseNoWWW.result.pages);
@@ -190,9 +189,9 @@ const canonicalAudit = async (options, assessment) => {
 };
 
 export const canonical = async (options) => {
-  const { site, baseURL, devBaseURL } = options;
+  const { baseURL, devBaseURL } = options;
   const title = 'Canonical Audit';
-  const assessment = await Assessment.create(site, title);
+  const assessment = new Assessment(options, title);
   assessment.setRowHeadersAndDefaults({
     url: '',
     issues: '',

@@ -9,8 +9,8 @@
     "sitemap": "node ./all-assessments.js audit=sitemap",
     "lint": "eslint . --fix",
     "test": "mocha --reporter spec",
-    "broken-internal-links": "node ./all-assessments.js audit=broken-internal-links",
-    "broken-backlinks": "node ./all-assessments.js audit=broken-backlinks",
+    "broken-internal-links": "node ./all-assessments.js audit=brokenInternalLinks",
+    "broken-backlinks": "node ./all-assessments.js audit=brokenBacklinks",
     "all": "node all-assessments.js audit=all"
   },
   "repository": {

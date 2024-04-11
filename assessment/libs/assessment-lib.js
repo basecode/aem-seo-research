@@ -13,40 +13,24 @@
 import fs from 'fs';
 import path from 'path';
 import { json2csv } from 'json-2-csv';
-import { composeAuditURL } from '@adobe/spacecat-shared-utils';
 import { generateFileName, OUTPUT_DIR } from '../file-lib.js';
 
 export const USER_AGENT = 'basecode/seo-research-crawler/1.0';
 export const SPACECAT_API_BASE_URL = 'https://spacecat.experiencecloud.live/api/v1';
 
 class Assessment {
-  constructor(site, userTitle) {
-    this.site = site;
+  constructor(options, userTitle) {
+    this.site = options.site;
     this.userTitle = userTitle;
     this.csvContent = [];
     this.rowHeadersAndDefaults = null;
     this.totalStartHrTime = process.hrtime();
-  }
-
-  async init() {
-    const siteAuditUrl = await composeAuditURL(this.site.baseURL);
-    this.siteAuditUrl = siteAuditUrl.replace(/\.html$/, '');
-    this.reportFilePath = path.join(OUTPUT_DIR, `${generateFileName(this.siteAuditUrl, this.userTitle)}-${Date.now()}.csv`);
-    console.log(`${this.userTitle}: Assessment for ${this.siteAuditUrl}`);
-  }
-
-  static async create(site, userTitle) {
-    const assessment = new Assessment(site, userTitle);
-    await assessment.init();
-    return assessment;
+    this.reportFilePath = path.join(OUTPUT_DIR, `${generateFileName(options.siteAuditURL, this.userTitle)}-${Date.now()}.csv`);
+    console.log(`${this.userTitle}: Assessment for ${options.siteAuditURL}`);
   }
 
   getSite() {
     return this.site;
-  }
-
-  getSiteAuditUrl() {
-    return this.siteAuditUrl;
   }
 
   setRowHeadersAndDefaults(defaults) {

@@ -310,11 +310,11 @@ async function checkPage(url) {
 }
 
 export const sitemap = async (options) => {
-  const { site, baseURL } = options;
+  const { baseURL } = options;
   const title = 'Sitemap';
   console.log(`Running sitemap audit for ${baseURL} with options: ${JSON.stringify(options)}`);
 
-  const assessment = await Assessment.create(site, title);
+  const assessment = new Assessment(options, title);
   assessment.setRowHeadersAndDefaults({
     sitemapOrPage: '',
     source: '',

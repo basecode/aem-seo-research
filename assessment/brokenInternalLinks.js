@@ -128,7 +128,7 @@ export const brokenInternalLinks = async (options) => {
   const title = 'Broken Internal Links';
   console.log(`Running broken internal links audit for ${baseURL} with options: ${JSON.stringify(options)}`);
 
-  const assessment = await Assessment.create(options.site, title);
+  const assessment = new Assessment(options, title);
   assessment.setRowHeadersAndDefaults({ url: '', brokenLink: '', statusCode: '' });
   await brokenInternalLinksAudit(assessment, options);
   assessment.end();
