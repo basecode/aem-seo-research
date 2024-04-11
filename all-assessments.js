@@ -102,7 +102,9 @@ const setup = async () => {
     { apiBaseUrl: SPACECAT_API_BASE_URL, apiKey: process.env.SPACECAT_API_KEY },
   );
   options.site = await spaceCatSdk.getSite(options.baseURL);
-  options.hlxSiteURL = await gitHubURLToHlxSite(options.site.gitHubURL);
+  if (options.site.gitHubURL) {
+    options.hlxSiteURL = await gitHubURLToHlxSite(options.site.gitHubURL);
+  }
 
   const siteAuditUrl = await composeAuditURL(options.site.baseURL);
   options.siteAuditURL = siteAuditUrl.replace(/\.html$/, '');
