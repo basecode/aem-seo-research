@@ -13,6 +13,7 @@ import fs from 'fs';
 import SpaceCatSdk from 'spacecat-sdk/src/sdk.js';
 import { json2csv } from 'json-2-csv';
 import path from 'path';
+import { composeAuditURL } from '@adobe/spacecat-shared-utils';
 import { canonical } from './assessment/canonical.js';
 import { sitemap } from './assessment/sitemap.js';
 import { brokenInternalLinks } from './assessment/brokenInternalLinks.js';
@@ -20,7 +21,6 @@ import { brokenBacklinks } from './assessment/brokenBacklinks.js';
 import { OUTPUT_DIR, sanitizeFilename } from './assessment/file-lib.js';
 import { SPACECAT_API_BASE_URL } from './assessment/libs/assessment-lib.js';
 import { gitHubURLToHlxSite } from './assessment/libs/page-provider.js';
-import {composeAuditURL} from "@adobe/spacecat-shared-utils";
 
 const audits = {
   canonical,

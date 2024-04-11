@@ -11,7 +11,6 @@
  */
 
 import { JSDOM } from 'jsdom';
-import { composeAuditURL } from '@adobe/spacecat-shared-utils';
 import Assessment from './libs/assessment-lib.js';
 import AhrefsCache from './libs/ahrefs-cache.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';

@@ -11,11 +11,10 @@
  */
 
 import dotenv from 'dotenv';
-import { composeAuditURL } from '@adobe/spacecat-shared-utils';
 import Assessment from './libs/assessment-lib.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
-import { gitHubURLToHlxSite, prodToDevUrl } from './libs/page-provider.js';
 import HttpClient from './libs/fetch-client.js';
+import { prodToDevUrl } from './libs/page-provider.js';
 
 dotenv.config();
 
