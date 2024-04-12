@@ -14,7 +14,7 @@
 import path from 'path';
 import NodeFetchCache, { FileSystemCache } from 'node-fetch-cache';
 import { ROOT_DIR } from '../file-lib.js';
-import { USER_AGENT } from '../assessment-lib.js';
+import { USER_AGENT } from './assessment-lib.js';
 
 class CachedFetchAPI {
   /**
@@ -49,7 +49,6 @@ class CachedFetchAPI {
      */
   async get(url, options = {}) {
     return this.call('GET', url, undefined, options);
-
   }
 
   /**

@@ -20,8 +20,8 @@ import nock from 'nock';
 import SpaceCatSdk from 'spacecat-sdk/src/sdk.js';
 import fs from 'fs';
 import path from 'path';
-import { createAssessment } from '../assessment/assessment-lib.js';
-import { brokenBacklinksAudit } from '../assessment/broken-backlinks.js';
+import Assessment from '../assessment/libs/assessment-lib.js';
+import { brokenBacklinksAudit } from '../assessment/brokenBacklinks.js';
 import AhrefsAPIClient from '../assessment/libs/ahrefs-client.js';
 import { ROOT_DIR } from '../assessment/file-lib.js';
 
@@ -57,7 +57,7 @@ describe('brokenBacklinksAudit', () => {
   });
 
   it('should handle no backlinks found', async () => {
-    const assessment = await createAssessment('https://space.dog', 'Broken Backlinks');
+    const assessment = await Assessment.create('https://space.dog', 'Broken Backlinks');
 
     getBacklinksStub.resolves({ result: { backlinks: [] } });
 
@@ -66,7 +66,7 @@ describe('brokenBacklinksAudit', () => {
   });
 
   it('should handle no top pages found', async () => {
-    const assessment = await createAssessment('https://space.dog', 'Broken Backlinks');
+    const assessment = await Assessment.create('https://space.dog', 'Broken Backlinks');
 
     getBacklinksStub.resolves({ result: { backlinks: [{ url_to: 'https://www.space.dog/how-to-chase-a-cat' }] } });
     getTopPagesStub.resolves({ result: { pages: [] } });
@@ -82,7 +82,7 @@ describe('brokenBacklinksAudit', () => {
   });
 
   it('should handle valid backlinks', async () => {
-    const assessment = await createAssessment('https://space.dog', 'Broken Backlinks');
+    const assessment = await Assessment.create('https://space.dog', 'Broken Backlinks');
 
     getBacklinksStub.resolves({ result: { backlinks: [{ url_to: 'https://www.space.dog/how-to-chase-a-cat' }] } });
     getTopPagesStub.resolves({ result: { pages: [{ url: 'https://www.space.dog/how-to-chase-a-cat' }] } });
@@ -96,7 +96,7 @@ describe('brokenBacklinksAudit', () => {
   });
 
   it('should handle broken backlinks', async () => {
-    const assessment = await createAssessment('https://space.dog', 'Broken Backlinks');
+    const assessment = await Assessment.create('https://space.dog', 'Broken Backlinks');
 
     const backlink = {
       url_to: 'https://www.space.dog/how-to-float-around-your-tail',

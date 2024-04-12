@@ -5,13 +5,13 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "canonical": "node ./assessment/canonical.js",
-    "sitemap": "node ./assessment/sitemap.js",
+    "canonical": "node ./all-assessments.js audit=canonical",
+    "sitemap": "node ./all-assessments.js audit=sitemap",
     "lint": "eslint . --fix",
     "test": "mocha --reporter spec",
-    "broken-internal-links": "node ./assessment/brokenInternalLinks.js",
-    "broken-backlinks": "node ./assessment/broken-backlinks.js",
-    "all": "node all-assessments.js"
+    "broken-internal-links": "node ./all-assessments.js audit=brokenInternalLinks",
+    "broken-backlinks": "node ./all-assessments.js audit=brokenBacklinks",
+    "all": "node all-assessments.js audit=all"
   },
   "repository": {
     "type": "git",
@@ -31,12 +31,12 @@
   "dependencies": {
     "@adobe/spacecat-shared-utils": "1.14.2",
     "axios": "^1.6.7",
+    "cheerio": "^1.0.0-rc.12",
     "dotenv": "^16.4.1",
-    "jsdom": "^24.0.0",
     "json-2-csv": "^5.5.1",
     "node-fetch": "3.3.2",
-    "spacecat-sdk": "https://gitpkg.now.sh/adobe/spacecat-shared/packages/spacecat-shared-sdk?spacecat-sdk",
     "node-fetch-cache": "4.1.0",
+    "spacecat-sdk": "https://gitpkg.now.sh/adobe/spacecat-shared/packages/spacecat-shared-sdk?spacecat-sdk",
     "xml2js": "^0.6.2",
     "zlib": "^1.0.5"
   },

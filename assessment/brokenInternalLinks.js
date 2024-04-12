@@ -10,16 +10,13 @@
  * governing permissions and limitations under the License.
  */
 
-import { JSDOM } from 'jsdom';
-import { createAssessment } from './assessment-lib.js';
+import * as cheerio from 'cheerio';
+import Assessment from './libs/assessment-lib.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
-import AhrefsCache from './libs/ahrefs-cache.js';
-import { OUTPUT_DIR } from './file-lib.js';
 import HttpClient from './libs/fetch-client.js';
 import PageProvider from './libs/page-provider.js';
 
 const httpClient = new HttpClient().getInstance();
-const userSiteUrl = process.argv[2];
 let totalBrokenLinks = 0;
 let pagesChecked = 0;
 
@@ -34,13 +31,11 @@ async function fetchInternalLinks(pageUrl) {
     const baseUrl = new URL(pageUrl);
 
     const htmlContent = await response.text();
-    const dom = new JSDOM(htmlContent);
-    const { body } = dom.window.document;
-    const allLinks = body.querySelectorAll('a');
+    const $ = cheerio.load(htmlContent);
 
     // Extract href attributes of anchor tags
-    allLinks.forEach((element) => {
-      const { href } = element;
+    $('body a').each((index, element) => {
+      const href = $(element).attr('href');
       if (href) {
         let link = null;
 
@@ -88,7 +83,7 @@ async function checkForBrokenInternalLinks(url, assessment) {
   if (errors.length === 0) return;
   errors.forEach((e) => {
     totalBrokenLinks += 1;
-    assessment.addColumn({ url, brokenLink: e.link, statusCode: e.status });
+    assessment.addRow({ url, brokenLink: e.link, statusCode: e.status });
   });
 }
 async function brokenInternalLinksAudit(assessment, options) {
@@ -126,26 +121,18 @@ async function brokenInternalLinksAudit(assessment, options) {
   console.log(`Total broken internal links: ${totalBrokenLinks}`);
 }
 
-export const brokenInternalLinks = (async () => {
-  const options = {
-    topPages: 200, // default number of pages to check
-    devBaseURL: undefined,
-  };
-  const args = process.argv.slice(3);
-  args.forEach((arg) => {
-    const [key, value] = arg.split('=');
-    // eslint-disable-next-line default-case
-    switch (key) {
-      case 'devBaseURL':
-        options.devBaseURL = value;
-        break;
-    }
-  });
-  console.log(`Running broken internal links audit for ${userSiteUrl} with options: ${JSON.stringify(options)}`);
+export const brokenInternalLinks = async (options) => {
+  const { baseURL } = options;
+  const title = 'Broken Internal Links';
+  console.log(`Running broken internal links audit for ${baseURL} with options: ${JSON.stringify(options)}`);
 
-  const assessment = await createAssessment(userSiteUrl, 'Broken Internal Links');
+  const assessment = new Assessment(options, title);
   assessment.setRowHeadersAndDefaults({ url: '', brokenLink: '', statusCode: '' });
   await brokenInternalLinksAudit(assessment, options);
   assessment.end();
-  process.exit(0);
-})();
+  return {
+    auditType: title,
+    amountOfIssues: assessment.getRows().length,
+    location: assessment.reportFilePath,
+  };
+};

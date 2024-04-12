@@ -11,11 +11,10 @@
  */
 
 import dotenv from 'dotenv';
-import { composeAuditURL } from '@adobe/spacecat-shared-utils';
-import { createAssessment } from './assessment-lib.js';
+import Assessment from './libs/assessment-lib.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
-import { gitHubURLToHlxSite, prodToDevUrl } from './libs/page-provider.js';
 import HttpClient from './libs/fetch-client.js';
+import { prodToDevUrl } from './libs/page-provider.js';
 
 dotenv.config();
 
@@ -41,20 +40,10 @@ async function filterOutValidBacklinks(backlinks, log) {
   return backlinks.filter((_, index) => backlinkStatuses[index]);
 }
 
-export const brokenBacklinksAudit = async (assessment, userSiteUrl, options, log = console) => {
-  // TODO: these could be outside of the audit function,
-  //  since it's just retrieving information about the site that
-  //  the audit should get as input parameters
-  const site = assessment.getSite();
-  const siteAuditUrl = assessment.getSiteAuditUrl();
-
-  let devBaseURL;
-  let hlxSiteURL;
-  if (options.devBaseURL) {
-    devBaseURL = await composeAuditURL(options.devBaseURL);
-  } else if (site.gitHubURL) {
-    hlxSiteURL = await gitHubURLToHlxSite(site.gitHubURL);
-  }
+export const brokenBacklinksAudit = async (assessment, options, log = console) => {
+  const {
+    hlxSiteURL, siteAuditURL, devAuditURL,
+  } = options;
 
   const ahrefsClient = new AhrefsAPIClient(
     { apiKey: process.env.AHREFS_API_KEY },
@@ -64,21 +53,21 @@ export const brokenBacklinksAudit = async (assessment, userSiteUrl, options, log
   );
 
   const topBacklinksResponse = await ahrefsClient
-    .getBacklinks(siteAuditUrl, options.topBacklinks);
+    .getBacklinks(siteAuditURL, options.topBacklinks);
   let topBacklinks = topBacklinksResponse?.result?.backlinks;
 
   if (!topBacklinks || topBacklinks.length === 0) {
-    log.warn(`No backlinks found for the site URL ${siteAuditUrl}`);
+    log.warn(`No backlinks found for the site URL ${siteAuditURL}`);
     return;
   }
 
   let topPagesUrls;
   if (options.onlyBacklinksInTopPages) {
     const topPagesResponse = await ahrefsClient
-      .getTopPages(siteAuditUrl, options.topPages);
+      .getTopPages(siteAuditURL, options.topPages);
     if (!topPagesResponse?.result?.pages
       || topPagesResponse?.result?.pages.length === 0) {
-      log.warn(`No top pages found for the site URL ${siteAuditUrl}`);
+      log.warn(`No top pages found for the site URL ${siteAuditURL}`);
       return;
     }
     topPagesUrls = topPagesResponse.result.pages.map((page) => page.url);
@@ -96,7 +85,7 @@ export const brokenBacklinksAudit = async (assessment, userSiteUrl, options, log
       original_url_to: backlink.url_to,
       url_to: prodToDevUrl(backlink.url_to, {
         hlxSiteURL,
-        devBaseURL,
+        devAuditURL,
       }),
     }));
 
@@ -104,7 +93,7 @@ export const brokenBacklinksAudit = async (assessment, userSiteUrl, options, log
 
   // TODO: this could be outside of the audit function, since it's just formatting stuff
   brokenBacklinks.forEach((backlink) => {
-    assessment.addColumn({
+    assessment.addRow({
       original_url: backlink.original_url_to,
       url: backlink.url_to,
       source: 'ahrefs',
@@ -114,46 +103,12 @@ export const brokenBacklinksAudit = async (assessment, userSiteUrl, options, log
   });
 };
 
-export const brokenBacklinks = (async () => {
-  const userSiteUrl = process.argv[2];
+export const brokenBacklinks = async (options) => {
+  const { baseURL } = options;
+  const title = 'Broken Backlinks';
+  console.log(`Running broken backlinks audit for ${baseURL} with options: ${JSON.stringify(options)}`);
 
-  const options = {
-    topPages: 200,
-    topBacklinks: 200,
-    onlyBacklinksInTopPages: true,
-    devBaseURL: undefined,
-    sitemap: undefined,
-  };
-  const args = process.argv.slice(3);
-  const isPositiveNumber = (value) => !Number.isNaN(value) && value > 0;
-  args.forEach((arg) => {
-    const [key, value] = arg.split('=');
-    // eslint-disable-next-line default-case
-    switch (key) {
-      case 'topPages': {
-        const topPages = parseInt(value, 10);
-        options.topPages = isPositiveNumber(topPages) ? topPages : options.topPages;
-        break;
-      }
-      case 'topBacklinks': {
-        const topBacklinks = parseInt(value, 10);
-        options.topBacklinks = isPositiveNumber(topBacklinks) ? topBacklinks : options.topBacklinks;
-        break;
-      }
-      case 'onlyBacklinksInTopPages':
-        options.onlyBacklinksInTopPages = value === 'true';
-        break;
-      case 'devBaseURL':
-        options.devBaseURL = value;
-        break;
-      case 'sitemap':
-        options.sitemap = value;
-        break;
-    }
-  });
-  console.log(`Running broken backlinks audit for ${userSiteUrl} with options: ${JSON.stringify(options)}`);
-
-  const assessment = await createAssessment(userSiteUrl, 'Broken Backlinks');
+  const assessment = new Assessment(options, title);
   assessment.setRowHeadersAndDefaults({
     original_url: '',
     url: '',
@@ -162,8 +117,12 @@ export const brokenBacklinks = (async () => {
     url_from: '',
   });
 
-  await brokenBacklinksAudit(assessment, userSiteUrl, options);
+  await brokenBacklinksAudit(assessment, options);
 
   assessment.end();
-  process.exit(0);
-})();
+  return {
+    auditType: title,
+    amountOfIssues: assessment.getRows().length,
+    location: assessment.reportFilePath,
+  };
+};

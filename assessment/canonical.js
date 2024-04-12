@@ -10,9 +10,8 @@
  * governing permissions and limitations under the License.
  */
 
-import { JSDOM } from 'jsdom';
-import { composeAuditURL } from '@adobe/spacecat-shared-utils';
-import { createAssessment } from './assessment-lib.js';
+import * as cheerio from 'cheerio';
+import Assessment from './libs/assessment-lib.js';
 import AhrefsCache from './libs/ahrefs-cache.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
 import { OUTPUT_DIR } from './file-lib.js';
@@ -20,13 +19,7 @@ import { fetchAllPages } from './sitemap.js';
 import HttpClient from './libs/fetch-client.js';
 
 const PARAMS = '?';
-const userSiteUrl = process.argv[2];
 const httpClient = new HttpClient().getInstance();
-
-const options = {
-  topPages: 200,
-  sitemapSrc: undefined,
-};
 
 const startsWithWww = (url) => url.startsWith('https://www.');
 const endsWithSlash = (url) => url.endsWith('/');
@@ -40,32 +33,10 @@ const delay = (duration) => new Promise((resolve) => {
 const fetchWithRetry = async (url, maxRetries = 3, initialBackoff = 300) => {
   let retries = maxRetries;
   let backoff = initialBackoff;
-  let initialResponseCode = null;
 
-  const attemptFetch = async (attemptUrl, followRedirect = true) => {
+  const attemptFetch = async (attemptUrl) => {
     try {
-      const response = await httpClient.get(attemptUrl, { redirect: 'manual' });
-      const responseCode = response.status;
-
-      // Save the initial response code if it's the first attempt
-      if (initialResponseCode === null) {
-        initialResponseCode = responseCode;
-      }
-
-      // Handle redirects manually
-      if (followRedirect && responseCode >= 300 && responseCode < 400) {
-        const location = response.headers.get('Location');
-        if (location) {
-          // Follow the redirect without allowing further redirects
-          return attemptFetch(location, false);
-        }
-      }
-
-      if (response.ok) {
-        return { response, initialResponseCode };
-      }
-
-      throw new Error(`Response not OK: ${response.statusText}`);
+      return await httpClient.get(attemptUrl);
     } catch (error) {
       if (retries > 0) {
         console.log(`Error fetching URL ${url}: ${error.message}. Retrying in ${backoff}ms`);
@@ -73,7 +44,7 @@ const fetchWithRetry = async (url, maxRetries = 3, initialBackoff = 300) => {
         backoff *= 2;
         retries -= 1;
         // Recursive call
-        return attemptFetch(url, followRedirect);
+        return attemptFetch(url);
       }
       // Rethrow error after exhausting retries
       throw error;
@@ -83,71 +54,86 @@ const fetchWithRetry = async (url, maxRetries = 3, initialBackoff = 300) => {
   return attemptFetch(url);
 };
 
-const checkForCanonical = async (url, sitemapUrls, assessment) => {
+const checkForCanonical = async (url, sitemapUrls, assessment, devBaseURL) => {
+  const path = new URL(url).pathname;
+  const fetchURL = devBaseURL ? new URL(path, devBaseURL).href : url;
+
   try {
-    const { response, initialResponseCode } = await fetchWithRetry(url);
+    const response = await fetchWithRetry(fetchURL);
     const finalUrl = response.url;
-    const isRedirect = url !== finalUrl;
+    const finalPath = new URL(finalUrl).pathname;
     const contentType = response.headers.get('content-type');
 
     if (!contentType || !contentType.includes('text/html')) {
-      throw new Error('Not an HTML page');
+      // Skip non-HTML content
+      return;
     }
 
     const htmlContent = await response.text();
-    const dom = new JSDOM(htmlContent);
-    const canonicalLink = dom.window.document.querySelector('link[rel="canonical"]')?.href;
-    const isCanonicalMatchFinalUrl = finalUrl === canonicalLink;
+    console.log(finalUrl);
+    const $ = cheerio.load(htmlContent);
+    const canonicalLinkElement = $('link[rel="canonical"]').attr('href');
+    const canonicalBaseURL = canonicalLinkElement || finalUrl;
+    const canonicalLink = canonicalLinkElement ? new URL(canonicalBaseURL, finalUrl).href : null;
+    const canonicalPath = canonicalLink ? new URL(canonicalLink).pathname : null;
 
     if (!canonicalLink) throw new Error('No canonical link found');
 
-    const alternatives = [
+    const alternatives = devBaseURL ? [] : [
       startsWithWww(url) ? url.replace('https://www.', 'https://') : `https://www.${url.slice(8)}`,
       endsWithSlash(url) ? url.slice(0, -1) : `${url}/`,
       endsWithHtml(url) ? url.slice(0, -5) : `${url}.html`,
     ];
 
-    const isCanonicalInSitemap = sitemapUrls.some((obj) => obj.page === canonicalLink);
+    const isCanonicalInSitemap = sitemapUrls.some(
+      (obj) => (
+        devBaseURL ? new URL(obj.page).pathname === canonicalPath : obj.page === canonicalLink
+      ),
+    );
+
+    const canonicalMatch = devBaseURL ? finalPath === canonicalPath : finalUrl === canonicalLink;
 
     const alternativeInSitemap = alternatives.map(
       (alternativeUrl) => sitemapUrls.some((obj) => obj.page === alternativeUrl),
     );
 
-    const missingCanonicalReasons = [
+    const missingCanonicalReasons = devBaseURL ? [] : [
       alternativeInSitemap[0] && 'WWW version in sitemap',
       alternativeInSitemap[1] && 'Trailing slash version in sitemap',
       alternativeInSitemap[2] && 'HTML extension version in sitemap',
     ].filter(Boolean);
 
     const issues = [
-      !isCanonicalInSitemap && missingCanonicalReasons.length === 0 && 'Canonical not in sitemap (Ensure the preferred canonical URL is listed in the sitemap for better search engine indexing)',
-      !isCanonicalInSitemap && missingCanonicalReasons.length > 0 && `Canonical not in sitemap, but alternative found: ${missingCanonicalReasons.join(', ')} (The sitemap contains an alternative version of the URL, which might lead to confusion for search engines)`,
-      isRedirect && !isCanonicalMatchFinalUrl && `Redirect detected: The page redirects from ${url} to ${finalUrl}, but the canonical URL is ${canonicalLink} (Ensure the canonical URL is the final destination without further redirects)`,
-      containsParams(url) && 'URL contains parameters (URL parameters can lead to duplicate content issues; review if they are essential for user navigation or if they can be handled differently)',
+      !devBaseURL && !isCanonicalInSitemap && missingCanonicalReasons.length === 0 && 'Canonical not in sitemap',
+      !isCanonicalInSitemap && missingCanonicalReasons.length > 0 && `Canonical not in sitemap, but alternative found: ${missingCanonicalReasons.join(', ')}`,
+      !canonicalMatch && 'Canonical URL does not match page URL',
+      containsParams(finalUrl) && 'URL contains parameters',
     ].filter(Boolean);
 
     if (issues.length > 0) {
-      assessment.addColumn({
-        url,
-        status: initialResponseCode,
+      assessment.addRow({
+        url: finalUrl,
+        status: response.status,
         issues: issues.join('. '),
       });
     }
   } catch (error) {
-    assessment.addColumn({
-      url,
+    assessment.addRow({
+      url: fetchURL,
       error: error.message,
     });
   }
 };
 
-const canonicalAudit = async (siteUrl, assessment) => {
-  const auditUrl = (await composeAuditURL(siteUrl)).replace(/\.html$/, '');
+const canonicalAudit = async (options, assessment) => {
+  const {
+    baseURL, devBaseURL, siteAuditURL, sitemap, topPages,
+  } = options;
 
-  console.log(`Fetching pages on audit url ${auditUrl}, from sitemap ${options.sitemapSrc ? `provided at ${options.sitemapSrc}` : ''}`);
-  const sitemapUrls = await fetchAllPages(siteUrl, options.sitemapSrc);
+  console.log(`Fetching pages on audit url ${siteAuditURL}, from sitemap ${sitemap ? `provided at ${sitemap}` : ''}`);
+  const sitemapUrls = await fetchAllPages(baseURL, sitemap);
 
-  console.log(`Fetching top ${options.topPages} pages from Ahrefs`);
+  console.log(`Fetching top ${topPages} pages from Ahrefs`);
   const ahrefsClient = new AhrefsAPIClient(
     {
       apiKey: process.env.AHREFS_API_KEY,
@@ -156,10 +142,10 @@ const canonicalAudit = async (siteUrl, assessment) => {
     httpClient,
   );
 
-  const fetchTopPages = async (url) => ahrefsClient.getTopPages(url, options.topPages);
+  const fetchTopPages = async (url) => ahrefsClient.getTopPages(url, topPages);
 
-  const responseNoWWW = await fetchTopPages(auditUrl.replace(/^www\./, ''));
-  const responseWithWWW = auditUrl.startsWith('www.') ? await fetchTopPages(auditUrl) : await fetchTopPages(`www.${auditUrl}`);
+  const responseNoWWW = await fetchTopPages(siteAuditURL.replace(/^www\./, ''));
+  const responseWithWWW = siteAuditURL.startsWith('www.') ? await fetchTopPages(siteAuditURL) : await fetchTopPages(`www.${siteAuditURL}`);
 
   const sumTraffic = (pages) => pages.reduce((acc, page) => acc + page.sum_traffic, 0);
   const totalTrafficNoWWW = sumTraffic(responseNoWWW.result.pages);
@@ -168,44 +154,30 @@ const canonicalAudit = async (siteUrl, assessment) => {
 
   const canonicalCheckPromises = response.result.pages
     .filter((page) => page.url)
-    .map((page) => checkForCanonical(page.url, sitemapUrls, assessment));
+    .map((page) => checkForCanonical(
+      page.url,
+      sitemapUrls.filter(
+        (sitemapUrl) => sitemapUrl.page,
+      ),
+      assessment,
+      devBaseURL,
+    ));
   return Promise.all(canonicalCheckPromises);
 };
 
-export const canonical = (async () => {
-  process.argv.slice(3).forEach((arg) => {
-    if (arg.startsWith('top-pages=')) {
-      const [, value] = arg.split('=');
-      const number = parseInt(value, 10);
-      if (Number.isNaN(number) || number <= 0) {
-        console.log('Defaulting to top 200 pages');
-        options.topPages = 200;
-      } else {
-        options.topPages = number;
-      }
-    } else if (arg.startsWith('sitemap=')) {
-      const [, value] = arg.split('=');
-      options.sitemapSrc = value;
-    } else {
-      // console.error(`Error: Unknown option '${arg}'`);
-      // process.exit(1);
-    }
-  });
-
-  const assessment = await createAssessment(userSiteUrl, 'Canonical');
+export const canonical = async (options) => {
+  const title = 'Canonical Audit';
+  const assessment = new Assessment(options, title);
   assessment.setRowHeadersAndDefaults({
     url: '',
     issues: '',
     error: '',
   });
-  await canonicalAudit(userSiteUrl, assessment);
-  if (assessment.getRows().length === 0) {
-    console.log('No issues found');
-    assessment.addColumn({
-      url: userSiteUrl,
-      error: 'No issues found',
-    });
-  }
+  await canonicalAudit(options, assessment);
   assessment.end();
-  process.exit(0);
-})();
+  return {
+    auditType: title,
+    amountOfIssues: assessment.getRows().length,
+    location: assessment.reportFilePath,
+  };
+};
