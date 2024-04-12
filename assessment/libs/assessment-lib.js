@@ -15,7 +15,7 @@ import path from 'path';
 import { json2csv } from 'json-2-csv';
 import { generateFileName, OUTPUT_DIR } from '../file-lib.js';
 
-export const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:123.0) Gecko/20100101 Firefox/123.0';
+export const USER_AGENT = 'basecode/seo-research-crawler/1.0';
 export const SPACECAT_API_BASE_URL = 'https://spacecat.experiencecloud.live/api/v1';
 
 class Assessment {
