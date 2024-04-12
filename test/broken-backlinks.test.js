@@ -43,7 +43,7 @@ describe('brokenBacklinksAudit', () => {
     topBacklinks: 1,
     ahrefsClient: ahrefsClientStub,
     hlxSiteURL: 'main--spacedog--hlxsites.hlx.live',
-    siteAuditUrl: 'www.space.dog',
+    siteAuditURL: 'www.space.dog',
   };
 
   beforeEach(() => {
