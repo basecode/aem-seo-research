@@ -25,7 +25,7 @@ class Assessment {
     this.csvContent = [];
     this.rowHeadersAndDefaults = null;
     this.totalStartHrTime = process.hrtime();
-    this.reportFilePath = path.join(OUTPUT_DIR, `${generateFileName(options.siteAuditURL, this.userTitle)}-${Date.now()}.csv`);
+    this.reportFilePath = path.join(OUTPUT_DIR, `${generateFileName(options.siteAuditURL, this.userTitle)}-${new Date().toISOString()}.csv`);
     console.log(`${this.userTitle}: Assessment for ${options.siteAuditURL}`);
   }
 
