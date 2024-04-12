@@ -10,11 +10,11 @@
  * governing permissions and limitations under the License.
  */
 
-import { JSDOM } from 'jsdom';
 import Assessment from './libs/assessment-lib.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
 import HttpClient from './libs/fetch-client.js';
 import PageProvider from './libs/page-provider.js';
+import * as cheerio from "cheerio";
 
 const httpClient = new HttpClient().getInstance();
 let totalBrokenLinks = 0;
@@ -31,13 +31,11 @@ async function fetchInternalLinks(pageUrl) {
     const baseUrl = new URL(pageUrl);
 
     const htmlContent = await response.text();
-    const dom = new JSDOM(htmlContent);
-    const { body } = dom.window.document;
-    const allLinks = body.querySelectorAll('a');
+    const $ = cheerio.load(htmlContent);
 
     // Extract href attributes of anchor tags
-    allLinks.forEach((element) => {
-      const { href } = element;
+    $('body a').each((index, element) => {
+      const href = $(element).attr('href');
       if (href) {
         let link = null;
 

@@ -10,13 +10,13 @@
  * governing permissions and limitations under the License.
  */
 
-import { JSDOM } from 'jsdom';
 import Assessment from './libs/assessment-lib.js';
 import AhrefsCache from './libs/ahrefs-cache.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
-import { OUTPUT_DIR } from './file-lib.js';
-import { fetchAllPages } from './sitemap.js';
+import {OUTPUT_DIR} from './file-lib.js';
+import {fetchAllPages} from './sitemap.js';
 import HttpClient from './libs/fetch-client.js';
+import * as cheerio from "cheerio";
 
 const PARAMS = '?';
 const httpClient = new HttpClient().getInstance();
@@ -33,32 +33,10 @@ const delay = (duration) => new Promise((resolve) => {
 const fetchWithRetry = async (url, maxRetries = 3, initialBackoff = 300) => {
   let retries = maxRetries;
   let backoff = initialBackoff;
-  let initialResponseCode = null;
 
-  const attemptFetch = async (attemptUrl, followRedirect = true) => {
+  const attemptFetch = async (attemptUrl) => {
     try {
-      const response = await httpClient.get(attemptUrl, { redirect: 'manual' });
-      const responseCode = response.status;
-
-      // Save the initial response code if it's the first attempt
-      if (initialResponseCode === null) {
-        initialResponseCode = responseCode;
-      }
-
-      // Handle redirects manually
-      if (followRedirect && responseCode >= 300 && responseCode < 400) {
-        const location = response.headers.get('Location');
-        if (location) {
-          // Follow the redirect without allowing further redirects
-          return attemptFetch(location, false);
-        }
-      }
-
-      if (response.ok) {
-        return { response, initialResponseCode };
-      }
-
-      throw new Error(`Response not OK: ${response.statusText}`);
+      return await httpClient.get(attemptUrl);
     } catch (error) {
       if (retries > 0) {
         console.log(`Error fetching URL ${url}: ${error.message}. Retrying in ${backoff}ms`);
@@ -66,7 +44,7 @@ const fetchWithRetry = async (url, maxRetries = 3, initialBackoff = 300) => {
         backoff *= 2;
         retries -= 1;
         // Recursive call
-        return attemptFetch(url, followRedirect);
+        return attemptFetch(url);
       }
       // Rethrow error after exhausting retries
       throw error;
@@ -81,10 +59,9 @@ const checkForCanonical = async (url, sitemapUrls, assessment, devBaseURL) => {
   const fetchURL = devBaseURL ? new URL(path, devBaseURL).href : url;
 
   try {
-    const { response, initialResponseCode } = await fetchWithRetry(fetchURL);
+    const response = await fetchWithRetry(fetchURL);
     const finalUrl = response.url;
     const finalPath = new URL(finalUrl).pathname;
-    const isRedirect = initialResponseCode >= 300 && initialResponseCode < 400;
     const contentType = response.headers.get('content-type');
 
     if (!contentType || !contentType.includes('text/html')) {
@@ -93,9 +70,10 @@ const checkForCanonical = async (url, sitemapUrls, assessment, devBaseURL) => {
     }
 
     const htmlContent = await response.text();
-    const dom = new JSDOM(htmlContent);
-    const canonicalLinkElement = dom.window.document.querySelector('link[rel="canonical"]');
-    const canonicalBaseURL = canonicalLinkElement ? canonicalLinkElement.href : finalUrl;
+    console.log(finalUrl);
+    const $ = cheerio.load(htmlContent);
+    const canonicalLinkElement = $('link[rel="canonical"]').attr('href');
+    const canonicalBaseURL = canonicalLinkElement || finalUrl;
     const canonicalLink = canonicalLinkElement ? new URL(canonicalBaseURL, finalUrl).href : null;
     const canonicalPath = canonicalLink ? new URL(canonicalLink).pathname : null;
 
@@ -128,14 +106,13 @@ const checkForCanonical = async (url, sitemapUrls, assessment, devBaseURL) => {
     const issues = [
       !devBaseURL && !isCanonicalInSitemap && missingCanonicalReasons.length === 0 && 'Canonical not in sitemap (Ensure the preferred canonical URL is listed in the sitemap for better search engine indexing)',
       !isCanonicalInSitemap && missingCanonicalReasons.length > 0 && `Canonical not in sitemap, but alternative found: ${missingCanonicalReasons.join(', ')} (The sitemap contains an alternative version of the URL, which might lead to confusion for search engines)`,
-      isRedirect && !canonicalMatch && `Redirect detected: The page redirects from ${url} to ${finalUrl}, but the canonical URL is ${canonicalLink} (Ensure the canonical URL is the final destination without further redirects)`,
       containsParams(finalUrl) && 'URL contains parameters (URL parameters can lead to duplicate content issues; review if they are essential for user navigation or if they can be handled differently)',
     ].filter(Boolean);
 
     if (issues.length > 0) {
       assessment.addRow({
         url: fetchURL,
-        status: initialResponseCode,
+        status: response.status,
         issues: issues.join('. '),
       });
     }
@@ -197,13 +174,6 @@ export const canonical = async (options) => {
     error: '',
   });
   await canonicalAudit(options, assessment);
-  if (assessment.getRows().length === 0) {
-    console.log('No issues found');
-    assessment.addRow({
-      url: devBaseURL || baseURL,
-      error: 'No issues found',
-    });
-  }
   assessment.end();
   return {
     auditType: title,
