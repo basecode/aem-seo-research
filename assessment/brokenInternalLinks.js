@@ -10,11 +10,11 @@
  * governing permissions and limitations under the License.
  */
 
+import * as cheerio from 'cheerio';
 import Assessment from './libs/assessment-lib.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
 import HttpClient from './libs/fetch-client.js';
 import PageProvider from './libs/page-provider.js';
-import * as cheerio from "cheerio";
 
 const httpClient = new HttpClient().getInstance();
 let totalBrokenLinks = 0;

@@ -120,7 +120,7 @@ const createSummary = async (results) => {
     report: result.location,
   }));
   const csv = json2csv(summary);
-  const summaryFilePath = path.join(OUTPUT_DIR, `summary-${sanitizeFilename(options.baseURL)}-${Date.now()}.csv`);
+  const summaryFilePath = path.join(OUTPUT_DIR, `summary-${sanitizeFilename(options.baseURL)}-${new Date().toISOString()}.csv`);
   fs.writeFileSync(summaryFilePath, csv);
 };
 

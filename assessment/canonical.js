@@ -10,13 +10,13 @@
  * governing permissions and limitations under the License.
  */
 
+import * as cheerio from 'cheerio';
 import Assessment from './libs/assessment-lib.js';
 import AhrefsCache from './libs/ahrefs-cache.js';
 import AhrefsAPIClient from './libs/ahrefs-client.js';
-import {OUTPUT_DIR} from './file-lib.js';
-import {fetchAllPages} from './sitemap.js';
+import { OUTPUT_DIR } from './file-lib.js';
+import { fetchAllPages } from './sitemap.js';
 import HttpClient from './libs/fetch-client.js';
-import * as cheerio from "cheerio";
 
 const PARAMS = '?';
 const httpClient = new HttpClient().getInstance();
@@ -166,7 +166,6 @@ const canonicalAudit = async (options, assessment) => {
 };
 
 export const canonical = async (options) => {
-  const { baseURL, devBaseURL } = options;
   const title = 'Canonical Audit';
   const assessment = new Assessment(options, title);
   assessment.setRowHeadersAndDefaults({
