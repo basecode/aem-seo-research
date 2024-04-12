@@ -234,14 +234,7 @@ export async function fetchSitemapsFromSource(sources, origin) {
     try {
       const result = await parseStringPromise(xml);
       if (result.urlset && result.urlset.url) {
-        return [{
-          url: sitemapUrl,
-          source: origin,
-          locs: result.urlset.url.length,
-        }, ...result.urlset.url.map((urlEntry) => ({
-          page: urlEntry.loc[0],
-          source: sitemapUrl,
-        }))];
+        return [];
       } else if (result.sitemapindex && result.sitemapindex.sitemap) {
         const sitemaps = await fetchSitemapsFromSource(result.sitemapindex.sitemap.map((entry) => ({
           url: entry.loc[0],
@@ -318,7 +311,6 @@ export const sitemap = async (options) => {
   assessment.setRowHeadersAndDefaults({
     sitemapOrPage: '',
     source: '',
-    locs: 0,
     error: '',
     warning: '',
   });

@@ -104,14 +104,15 @@ const checkForCanonical = async (url, sitemapUrls, assessment, devBaseURL) => {
     ].filter(Boolean);
 
     const issues = [
-      !devBaseURL && !isCanonicalInSitemap && missingCanonicalReasons.length === 0 && 'Canonical not in sitemap (Ensure the preferred canonical URL is listed in the sitemap for better search engine indexing)',
-      !isCanonicalInSitemap && missingCanonicalReasons.length > 0 && `Canonical not in sitemap, but alternative found: ${missingCanonicalReasons.join(', ')} (The sitemap contains an alternative version of the URL, which might lead to confusion for search engines)`,
-      containsParams(finalUrl) && 'URL contains parameters (URL parameters can lead to duplicate content issues; review if they are essential for user navigation or if they can be handled differently)',
+      !devBaseURL && !isCanonicalInSitemap && missingCanonicalReasons.length === 0 && 'Canonical not in sitemap',
+      !isCanonicalInSitemap && missingCanonicalReasons.length > 0 && `Canonical not in sitemap, but alternative found: ${missingCanonicalReasons.join(', ')}`,
+      !canonicalMatch && 'Canonical URL does not match page URL',
+      containsParams(finalUrl) && 'URL contains parameters',
     ].filter(Boolean);
 
     if (issues.length > 0) {
       assessment.addRow({
-        url: fetchURL,
+        url: finalUrl,
         status: response.status,
         issues: issues.join('. '),
       });
