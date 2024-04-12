@@ -13,7 +13,7 @@ import zlib from 'zlib';
 import dotenv from 'dotenv';
 
 import { parseStringPromise } from 'xml2js';
-import { createAssessment } from './assessment-lib.js';
+import Assessment from './libs/assessment-lib.js';
 import HttpClient from './libs/fetch-client.js';
 
 dotenv.config();
@@ -30,7 +30,6 @@ export const ERROR_CODES = {
 };
 
 const httpClient = HttpClient.getInstance();
-const userSiteUrl = process.argv[2];
 
 export const getRobotsTxt = async (siteUrl) => {
   const defaultReturnValue = {
@@ -158,7 +157,7 @@ export async function checkRobotsForSitemap(protocol, domain) {
  * representing the success and reasons for the sitemap search and validation.
  */
 
-export async function findSitemap(inputUrl) {
+export async function findSitemaps(inputUrl) {
   const parsedUrl = extractDomainAndProtocol(inputUrl);
   if (!parsedUrl) {
     console.error(ERROR_CODES.INVALID_URL);
@@ -235,14 +234,7 @@ export async function fetchSitemapsFromSource(sources, origin) {
     try {
       const result = await parseStringPromise(xml);
       if (result.urlset && result.urlset.url) {
-        return [{
-          url: sitemapUrl,
-          source: origin,
-          locs: result.urlset.url.length,
-        }, ...result.urlset.url.map((urlEntry) => ({
-          page: urlEntry.loc[0],
-          source: sitemapUrl,
-        }))];
+        return [];
       } else if (result.sitemapindex && result.sitemapindex.sitemap) {
         const sitemaps = await fetchSitemapsFromSource(result.sitemapindex.sitemap.map((entry) => ({
           url: entry.loc[0],
@@ -287,7 +279,7 @@ export async function fetchAllPages(url, sitemapSrc) {
       new URL(sitemapSrc, `${protocol}://${domain}`).toString(), 'user provided',
     ]);
   }
-  const sitemaps = await findSitemap(url);
+  const sitemaps = await findSitemaps(url);
   if (!sitemaps.success) return [];
   return fetchSitemapsFromSource(sitemaps.paths, sitemaps.source);
 }
@@ -310,38 +302,26 @@ async function checkPage(url) {
   return { errors, warnings };
 }
 
-export const sitemap = (async () => {
-  const options = {
-    devBaseURL: undefined,
-  };
-  const args = process.argv.slice(3);
-  args.forEach((arg) => {
-    const [key, value] = arg.split('=');
-    // eslint-disable-next-line default-case
-    switch (key) {
-      case 'devBaseURL':
-        options.devBaseURL = value;
-        break;
-    }
-  });
-  console.log(`Running sitemap audit for ${userSiteUrl} with options: ${JSON.stringify(options)}`);
+export const sitemap = async (options) => {
+  const { baseURL } = options;
+  const title = 'Sitemap';
+  console.log(`Running sitemap audit for ${baseURL} with options: ${JSON.stringify(options)}`);
 
-  const assessment = await createAssessment(userSiteUrl, 'Sitemap');
+  const assessment = new Assessment(options, title);
   assessment.setRowHeadersAndDefaults({
     sitemapOrPage: '',
     source: '',
-    locs: 0,
     error: '',
     warning: '',
   });
 
   // const sitemaps = await fetchAllPages(options.devBaseURL);
-  const sitemaps = await fetchAllPages(userSiteUrl);
+  const sitemaps = await fetchAllPages(baseURL);
 
   // Assessment for sitemaps
   sitemaps.forEach(async (sm) => {
     if (sm.url) {
-      assessment.addColumn({
+      assessment.addRow({
         sitemapOrPage: sm.url, source: sm.source, locs: sm.locs, error: sm.error || '', warning: sm.warning || '',
       });
     }
@@ -355,7 +335,7 @@ export const sitemap = (async () => {
     .map(async (item) => {
       const { errors, warnings } = await checkPage(item.page);
       if (errors.length > 0 || warnings.length > 0) {
-        assessment.addColumn({
+        assessment.addRow({
           sitemapOrPage: item.page, source: item.source, error: errors.join(', '), warning: warnings.join(', '),
         });
       }
@@ -364,4 +344,9 @@ export const sitemap = (async () => {
   await Promise.all(promises);
 
   assessment.end();
-})();
+  return {
+    auditType: title,
+    amountOfIssues: assessment.getRows().length,
+    location: assessment.reportFilePath,
+  };
+};

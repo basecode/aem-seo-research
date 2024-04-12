@@ -20,7 +20,7 @@ import nock from 'nock';
 import SpaceCatSdk from 'spacecat-sdk/src/sdk.js';
 import fs from 'fs';
 import path from 'path';
-import { brokenBacklinksAudit } from '../assessment/broken-backlinks.js';
+import { brokenBacklinksAudit } from '../assessment/brokenBacklinks.js';
 import { ROOT_DIR } from '../assessment/file-lib.js';
 
 chai.use(sinonChai);
@@ -65,7 +65,7 @@ describe('brokenBacklinksAudit', () => {
   it('should handle no backlinks found', async () => {
     ahrefsClientStub.getBacklinks.resolves({ result: { backlinks: [] } });
 
-    const results = await brokenBacklinksAudit(options);
+    const results = await brokenBacklinksAudit(options, { ahrefsClient: ahrefsClientStub });
     expect(results).to.be.empty;
   });
 
@@ -79,7 +79,7 @@ describe('brokenBacklinksAudit', () => {
 
     options.onlyBacklinksInTopPages = true;
 
-    const results = await brokenBacklinksAudit(options);
+    const results = await brokenBacklinksAudit(options, { ahrefsClient: ahrefsClientStub });
     expect(results).to.be.empty;
   });
 
@@ -91,7 +91,7 @@ describe('brokenBacklinksAudit', () => {
       .get('/how-to-chase-a-cat')
       .reply(200);
 
-    const results = await brokenBacklinksAudit(options);
+    const results = await brokenBacklinksAudit(options, { ahrefsClient: ahrefsClientStub });
     expect(results).to.be.empty;
   });
 
@@ -112,7 +112,7 @@ describe('brokenBacklinksAudit', () => {
       .get('/how-to-float-around-your-tail')
       .reply(404);
 
-    const results = await brokenBacklinksAudit(options);
+    const results = await brokenBacklinksAudit(options, { ahrefsClient: ahrefsClientStub });
     expect(results).to.have.lengthOf(1);
     expect(results[0]).to.deep.equal({
       original_url_to: backlink.url_to,

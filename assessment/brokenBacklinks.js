@@ -11,11 +11,10 @@
  */
 
 import dotenv from 'dotenv';
-import { composeAuditURL } from '@adobe/spacecat-shared-utils';
 import AhrefsAPIClient from 'spacecat-audit-worker/src/support/ahrefs-client.js';
-import { createAssessment } from './assessment-lib.js';
-import { gitHubURLToHlxSite, prodToDevUrl } from './libs/page-provider.js';
+import Assessment from './libs/assessment-lib.js';
 import HttpClient from './libs/fetch-client.js';
+import { prodToDevUrl } from './libs/page-provider.js';
 
 dotenv.config();
 
@@ -41,36 +40,38 @@ async function filterOutValidBacklinks(backlinks, log) {
   return backlinks.filter((_, index) => backlinkStatuses[index]);
 }
 
-export const brokenBacklinksAudit = async (options, log = console) => {
-  const { ahrefsClient } = options;
+export const brokenBacklinksAudit = async (options, { ahrefsClient }, log = console) => {
+  const {
+    hlxSiteURL, siteAuditURL, devAuditURL,
+  } = options;
   const topBacklinksResponse = await ahrefsClient
-    .getBacklinks(options.siteAuditUrl, options.topBacklinks);
+    .getBacklinks(siteAuditURL, options.topBacklinks);
   let topBacklinks = topBacklinksResponse?.result?.backlinks;
 
   if (!topBacklinks || topBacklinks.length === 0) {
-    log.warn(`No backlinks found for the site URL: ${options.siteAuditUrl}`);
+    log.warn(`No backlinks found for the site URL: ${siteAuditURL}`);
     return [];
   }
-  log.info(`${topBacklinks.length} backlinks found for the site URL: ${options.siteAuditUrl}: ${topBacklinks[0]}`);
+  log.info(`${topBacklinks.length} backlinks found for the site URL: ${siteAuditURL}: ${JSON.stringify(topBacklinks[0])}`);
 
   let topPagesUrls;
   if (options.onlyBacklinksInTopPages) {
     const topPagesResponse = await ahrefsClient
-      .getTopPages(options.siteAuditUrl, options.topPages);
+      .getTopPages(siteAuditURL, options.topPages);
     if (!topPagesResponse?.result?.pages
       || topPagesResponse?.result?.pages.length === 0) {
-      log.warn(`No top pages found for the site URL: ${options.siteAuditUrl}`);
+      log.warn(`No top pages found for the site URL: ${siteAuditURL}`);
       return [];
     }
     topPagesUrls = topPagesResponse.result.pages.map((page) => page.url);
-    log.info(`${topPagesUrls.length} top pages found for the site URL: ${options.siteAuditUrl}: ${topPagesUrls[0]}`);
+    log.info(`${topPagesUrls.length} top pages found for the site URL: ${siteAuditURL}: ${JSON.stringify(topPagesUrls[0])}`);
   }
 
   // filter out backlinks that are not top pages
   if (options.onlyBacklinksInTopPages) {
     topBacklinks = topBacklinks
       .filter((backlink) => topPagesUrls.includes(backlink.url_to));
-    log.info(`${topBacklinks.length} backlinks after filtering by top pages for the site URL: ${options.siteAuditUrl}`);
+    log.info(`${topBacklinks.length} backlinks after filtering by top pages for the site URL: ${siteAuditURL}`);
   }
 
   topBacklinks = topBacklinks
@@ -78,55 +79,27 @@ export const brokenBacklinksAudit = async (options, log = console) => {
       ...backlink,
       original_url_to: backlink.url_to,
       url_to: prodToDevUrl(backlink.url_to, {
-        hlxSiteURL: options.hlxSiteURL,
-        devBaseURL: options.devBaseURL,
+        hlxSiteURL,
+        devAuditURL,
       }),
     }));
 
   const realBrokenBacklinks = await filterOutValidBacklinks(topBacklinks, log);
-  log.info(`${realBrokenBacklinks.length} backlinks after filtering out valid ones for the site URL: ${options.siteAuditUrl}`);
+  log.info(`${realBrokenBacklinks.length} backlinks after filtering out valid ones for the site URL: ${siteAuditURL}`);
   return realBrokenBacklinks;
 };
 
-export const brokenBacklinks = (async () => {
-  const userSiteUrl = process.argv[2];
+export const brokenBacklinks = async (options) => {
+  const { baseURL } = options;
+  const title = 'Broken Backlinks';
+  console.log(`Running broken backlinks audit for ${baseURL} with options: ${JSON.stringify(options)}`);
 
-  const options = {
-    topPages: 200,
-    topBacklinks: 200,
-    onlyBacklinksInTopPages: true,
-    devBaseURL: undefined,
-    sitemap: undefined,
-  };
-  const args = process.argv.slice(3);
-  const isPositiveNumber = (value) => !Number.isNaN(value) && value > 0;
-  args.forEach((arg) => {
-    const [key, value] = arg.split('=');
-    // eslint-disable-next-line default-case
-    switch (key) {
-      case 'topPages': {
-        const topPages = parseInt(value, 10);
-        options.topPages = isPositiveNumber(topPages) ? topPages : options.topPages;
-        break;
-      }
-      case 'topBacklinks': {
-        const topBacklinks = parseInt(value, 10);
-        options.topBacklinks = isPositiveNumber(topBacklinks) ? topBacklinks : options.topBacklinks;
-        break;
-      }
-      case 'onlyBacklinksInTopPages':
-        options.onlyBacklinksInTopPages = value === 'true';
-        break;
-      case 'devBaseURL':
-        options.devBaseURL = value;
-        break;
-      case 'sitemap':
-        options.sitemap = value;
-        break;
-    }
-  });
+  const ahrefsClient = new AhrefsAPIClient({
+    apiKey: process.env.AHREFS_API_KEY,
+    apiBaseUrl: 'https://api.ahrefs.com/v3',
+  }, httpClient.getFetch());
 
-  const assessment = await createAssessment(userSiteUrl, 'Broken Backlinks');
+  const assessment = new Assessment(options, title);
   assessment.setRowHeadersAndDefaults({
     original_url: '',
     url: '',
@@ -135,23 +108,8 @@ export const brokenBacklinks = (async () => {
     url_from: '',
   });
 
-  const site = assessment.getSite();
-  options.siteAuditUrl = assessment.getSiteAuditUrl();
+  const brokenBacklinksResult = await brokenBacklinksAudit(options, { ahrefsClient });
 
-  if (options.devBaseURL) {
-    options.devBaseURL = await composeAuditURL(options.devBaseURL);
-  } else if (site.gitHubURL) {
-    options.hlxSiteURL = await gitHubURLToHlxSite(site.gitHubURL);
-  }
-
-  console.log(`Running broken backlinks audit for ${userSiteUrl} with options: ${JSON.stringify(options)}`);
-
-  options.ahrefsClient = new AhrefsAPIClient({
-    apiKey: process.env.AHREFS_API_KEY,
-    apiBaseUrl: 'https://api.ahrefs.com/v3',
-  }, httpClient.getFetch());
-
-  const brokenBacklinksResult = await brokenBacklinksAudit(options);
   brokenBacklinksResult.forEach((backlink) => {
     assessment.addColumn({
       original_url: backlink.original_url_to,
@@ -163,5 +121,9 @@ export const brokenBacklinks = (async () => {
   });
 
   assessment.end();
-  process.exit(0);
-})();
+  return {
+    auditType: title,
+    amountOfIssues: assessment.getRows().length,
+    location: assessment.reportFilePath,
+  };
+};

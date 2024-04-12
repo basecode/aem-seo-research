@@ -31,9 +31,9 @@ export async function gitHubURLToHlxSite(gitHubURL) {
   }
 }
 
-export function prodToDevUrl(pageUrl, { hlxSiteURL, devBaseURL }) {
+export function prodToDevUrl(pageUrl, { hlxSiteURL, devAuditURL }) {
   const url = new URL(pageUrl);
-  url.hostname = devBaseURL || hlxSiteURL || url.hostname;
+  url.hostname = devAuditURL || hlxSiteURL || url.hostname;
   return url.toString();
 }
 
@@ -44,26 +44,18 @@ export default class PageProvider {
     this.log = log;
   }
 
-  async getPagesOfInterest(site, options = {}, limit = 100) {
-    let siteAuditUrl = await composeAuditURL(site.baseURL);
-    siteAuditUrl = siteAuditUrl.replace(/\.html$/, '');
-
-    let devBaseURL;
-    let hlxSiteURL;
-
-    if (options.devBaseURL) {
-      devBaseURL = await composeAuditURL(options.devBaseURL);
-    } else if (site.gitHubURL) {
-      hlxSiteURL = await gitHubURLToHlxSite(site.gitHubURL);
-    }
+  async getPagesOfInterest(site, options) {
+    const {
+      limit = 100, siteAuditURL, devAuditURL, hlxSiteURL,
+    } = options || {};
 
     if (this.ahrefsClient) {
       try {
-        const response = await this.ahrefsClient.getTopPages(siteAuditUrl, limit);
+        const response = await this.ahrefsClient.getTopPages(siteAuditURL, limit);
         if (response?.result?.pages) {
           return response?.result?.pages.map((page) => ({
             prodUrl: page.url,
-            devUrl: prodToDevUrl(page.url, { devBaseURL, hlxSiteURL }),
+            devUrl: prodToDevUrl(page.url, { devAuditURL, hlxSiteURL }),
           }));
         }
       } catch (error) {
