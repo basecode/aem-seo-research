@@ -12,6 +12,7 @@
 
 import dotenv from 'dotenv';
 import AhrefsAPIClient from 'spacecat-audit-worker/src/support/ahrefs-client.js';
+import { filterOutValidBacklinks } from 'spacecat-audit-worker/src/backlinks/handler.js';
 import Assessment from './libs/assessment-lib.js';
 import HttpClient from './libs/fetch-client.js';
 import { prodToDevUrl } from './libs/page-provider.js';
@@ -19,26 +20,6 @@ import { prodToDevUrl } from './libs/page-provider.js';
 dotenv.config();
 
 const httpClient = HttpClient.getInstance();
-
-// TODO: reusable fragment copied from https://github.com/adobe/spacecat-audit-worker/blob/main/src/backlinks/handler.js#L21-L38
-async function filterOutValidBacklinks(backlinks, log) {
-  const isStillBrokenBacklink = async (backlink) => {
-    try {
-      const response = await httpClient.fetch(backlink.url_to);
-      if (!response.ok && response.status !== 404
-        && response.status >= 400 && response.status < 500) {
-        log.warn(`Backlink ${backlink.url_to} returned status ${response.status}`);
-      }
-      return !response.ok;
-    } catch (error) {
-      log.error(`Failed to check backlink ${backlink.url_to}: ${error}`);
-      return true;
-    }
-  };
-
-  const backlinkStatuses = await Promise.all(backlinks.map(isStillBrokenBacklink));
-  return backlinks.filter((_, index) => backlinkStatuses[index]);
-}
 
 export const brokenBacklinksAudit = async (options, { ahrefsClient }, log = console) => {
   const {
