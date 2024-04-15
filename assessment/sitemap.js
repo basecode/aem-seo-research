@@ -29,7 +29,7 @@ export const ERROR_CODES = {
   FETCH_ERROR: 'FETCH_ERROR',
 };
 
-const httpClient = new HttpClient().getInstance();
+const httpClient = HttpClient.getInstance();
 
 export const getRobotsTxt = async (siteUrl) => {
   const defaultReturnValue = {
@@ -58,7 +58,7 @@ export const getRobotsTxt = async (siteUrl) => {
   };
 
   try {
-    const robotsResponse = await httpClient.get(new URL('robots.txt', siteUrl).toString());
+    const robotsResponse = await httpClient.fetch(new URL('robots.txt', siteUrl).toString());
     if (robotsResponse.ok) {
       const robotsTxt = await robotsResponse.text();
       return parseRobotsTxt(robotsTxt);
@@ -78,7 +78,7 @@ export const getRobotsTxt = async (siteUrl) => {
  * of the response as a string if the request was successful, otherwise null.
  */
 export async function fetchContent(targetUrl) {
-  const response = await httpClient.get(targetUrl);
+  const response = await httpClient.fetch(targetUrl);
   return response.ok ? response.text() : null;
 }
 
@@ -218,7 +218,7 @@ export async function findSitemaps(inputUrl) {
 }
 
 async function fetchSitemapXml(url) {
-  const response = await httpClient.get(url);
+  const response = await httpClient.fetch(url);
   if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
     throw new Error(`HTTP Response Code: ${response.status}, Content-Type: ${response.headers.get('content-type')}`);
   }
@@ -293,7 +293,7 @@ async function checkPage(url) {
   }
   // file returns 2xx.
   try {
-    const response = await httpClient.get(url);
+    const response = await httpClient.fetch(url);
     if (!response.ok) errors.push(`must return 2xx but returns ${response.status}`);
   } catch (error) {
     errors.push(`${url} returns error ${error.message}`);

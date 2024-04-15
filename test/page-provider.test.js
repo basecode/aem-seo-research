@@ -60,7 +60,7 @@ describe('PageProvider', () => {
       site.gitHubURL = 'https://github.com/hlxsites/spacedog';
 
       const pageProvider = new PageProvider({ ahrefsClient: ahrefsClientStub });
-      const result = await pageProvider.getPagesOfInterest(site);
+      const result = await pageProvider.getPagesOfInterest(site, { hlxSiteURL: 'main--spacedog--hlxsites.hlx.live' });
 
       expect(result).to.be.an('array').that.is.not.empty;
       expect(result[0]).to.have.property('prodUrl', 'https://www.space.dog/how-to-chase-a-cat');

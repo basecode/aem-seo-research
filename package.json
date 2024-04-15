@@ -30,25 +30,26 @@
   "homepage": "https://github.com/basecode/aem-seo-research#readme",
   "dependencies": {
     "@adobe/spacecat-shared-utils": "1.14.2",
-    "axios": "^1.6.7",
-    "cheerio": "^1.0.0-rc.12",
-    "dotenv": "^16.4.1",
-    "json-2-csv": "^5.5.1",
+    "spacecat-audit-worker": "https://gitpkg.now.sh/adobe/spacecat-audit-worker?export-helper-function",
+    "axios": "1.6.7",
+    "cheerio": "1.0.0-rc.12",
+    "dotenv": "16.4.1",
+    "json-2-csv": "5.5.1",
     "node-fetch": "3.3.2",
     "node-fetch-cache": "4.1.0",
     "spacecat-sdk": "https://gitpkg.now.sh/adobe/spacecat-shared/packages/spacecat-shared-sdk?spacecat-sdk",
-    "xml2js": "^0.6.2",
-    "zlib": "^1.0.5"
+    "xml2js": "0.6.2",
+    "zlib": "1.0.5"
   },
   "devDependencies": {
-    "@adobe/eslint-config-helix": "^2.0.6",
+    "@adobe/eslint-config-helix": "2.0.6",
     "chai": "4.4.1",
-    "chai-as-promised": "^7.1.1",
-    "lint-staged": "^15.2.2",
+    "chai-as-promised": "7.1.1",
+    "lint-staged": "15.2.2",
     "mocha": "10.3.0",
-    "nock": "^13.5.4",
+    "nock": "13.5.4",
     "sinon": "17.0.1",
-    "sinon-chai": "^3.7.0"
+    "sinon-chai": "3.7.0"
   },
   "lint-staged": {
     "*.js": "eslint",

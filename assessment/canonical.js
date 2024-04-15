@@ -11,15 +11,13 @@
  */
 
 import * as cheerio from 'cheerio';
+import AhrefsAPIClient from 'spacecat-audit-worker/src/support/ahrefs-client.js';
 import Assessment from './libs/assessment-lib.js';
-import AhrefsCache from './libs/ahrefs-cache.js';
-import AhrefsAPIClient from './libs/ahrefs-client.js';
-import { OUTPUT_DIR } from './file-lib.js';
 import { fetchAllPages } from './sitemap.js';
 import HttpClient from './libs/fetch-client.js';
 
 const PARAMS = '?';
-const httpClient = new HttpClient().getInstance();
+const httpClient = HttpClient.getInstance();
 
 const startsWithWww = (url) => url.startsWith('https://www.');
 const endsWithSlash = (url) => url.endsWith('/');
@@ -36,7 +34,7 @@ const fetchWithRetry = async (url, maxRetries = 3, initialBackoff = 300) => {
 
   const attemptFetch = async (attemptUrl) => {
     try {
-      return await httpClient.get(attemptUrl);
+      return await httpClient.fetch(attemptUrl);
     } catch (error) {
       if (retries > 0) {
         console.log(`Error fetching URL ${url}: ${error.message}. Retrying in ${backoff}ms`);
@@ -134,13 +132,10 @@ const canonicalAudit = async (options, assessment) => {
   const sitemapUrls = await fetchAllPages(baseURL, sitemap);
 
   console.log(`Fetching top ${topPages} pages from Ahrefs`);
-  const ahrefsClient = new AhrefsAPIClient(
-    {
-      apiKey: process.env.AHREFS_API_KEY,
-    },
-    new AhrefsCache(OUTPUT_DIR),
-    httpClient,
-  );
+  const ahrefsClient = new AhrefsAPIClient({
+    apiKey: process.env.AHREFS_API_KEY,
+    apiBaseUrl: 'https://api.ahrefs.com/v3',
+  }, httpClient.getFetch());
 
   const fetchTopPages = async (url) => ahrefsClient.getTopPages(url, topPages);
 

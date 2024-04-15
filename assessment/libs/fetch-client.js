@@ -18,66 +18,50 @@ import { USER_AGENT } from './assessment-lib.js';
 
 class CachedFetchAPI {
   /**
-     * build a NodeFetchCache wrapper and pass a TTL and a cache directory.
-     * no need to add overhead by handling custom path renames or HAR responses, support is OOTB
-     * @param {Object} config - Configuration object
-     * @param {string} config.cacheDirectory - Path to the cache directory
-     * @param {number} config.ttl - Time to live for cache in milliseconds.
-     *                              Set as undefined
-     * to cache indefinitely
-     *
-     */
-
+   * build a NodeFetchCache wrapper and pass a TTL and a cache directory.
+   * no need to add overhead by handling custom path renames or HAR responses, support is OOTB
+   * @param {Object} config - Configuration object
+   * @param {string} config.cacheDirectory - Path to the cache directory
+   * @param {number} config.ttl - Time to live for cache in milliseconds.
+   * @param {number} config.delay - Time to live for cache in milliseconds.
+   * Set as undefined to cache indefinitely
+   */
   constructor(config) {
-    this.fetch = NodeFetchCache.create({
+    this.cachedFetch = NodeFetchCache.create({
       shouldCacheResponse: (response) => response.ok,
       cache: new FileSystemCache({
         cacheDirectory: config.cacheDirectory,
         ttl: config.ttl,
       }),
     });
+    this.delay = config.delay !== undefined ? config.delay : 1000;
   }
 
-  // https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
-
-  /**
-     * Wrapper over Fetch API GET
-     *
-     * @param url
-     * @param options
-     * @returns {Promise<NodeFetchResponse>}
-     */
-  async get(url, options = {}) {
-    return this.call('GET', url, undefined, options);
+  getFetch() {
+    return this.fetch.bind(this);
   }
 
   /**
-     * Wrapper over Fetch API POST
-     *
-     * @param url
-     * @param data
-     * @param options
-     * @returns {Promise<NodeFetchResponse>}
-     */
-  async post(url, data = {}, options = {}) {
-    return this.call('POST', url, data, options);
-  }
-
-  async call(method, url, data = undefined, options = {}) {
-    const body = data ? { body: JSON.stringify(data) } : {};
-    const response = await this.fetch(url, {
+   * Wrapper over Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
+   *
+   * @param url
+   * @param options
+   * @returns {Promise<NodeFetchResponse>}
+   */
+  async fetch(url, options = {}) {
+    const response = this.cachedFetch(url, {
       ...options,
-      method,
+      method: options.method || 'GET',
       headers: {
         ...options.headers,
         'User-Agent': USER_AGENT, // always override to ensure consistency
       },
-      ...body,
     });
 
-    if (!response.returnedFromCache) {
+    if (!CachedFetchAPI.isCached(response)) {
+      console.log(`Fetch request to ${url} was not cached. Sleeping...`);
       await new Promise((resolve) => {
-        setTimeout(resolve, 1000);
+        setTimeout(resolve, this.delay);
       });
     }
 
@@ -85,30 +69,25 @@ class CachedFetchAPI {
   }
 
   /**
-     * Wrapper over Node Fetch Cache isCacheMiss
-     * @param {NFCResponse} response (from a get or post call)
-     * @returns {boolean}
-     */
-  // eslint-disable-next-line class-methods-use-this
-  isCached(response) {
+   * Wrapper over Node Fetch Cache isCacheMiss
+   * @param {NFCResponse} response (from a get or post call)
+   * @returns {boolean}
+   */
+  static isCached(response) {
     return response.returnedFromCache;
   }
 }
 
 export default class HttpClient {
-  constructor() {
+  /**
+   * @returns {CachedFetchAPI}
+   */
+  static getInstance() {
     if (!HttpClient.instance) {
       HttpClient.instance = new CachedFetchAPI({
         cacheDirectory: path.join(ROOT_DIR, '.http_cache'),
       });
     }
-  }
-
-  /**
-     * @returns {CachedFetchAPI}
-     */
-  // eslint-disable-next-line class-methods-use-this
-  getInstance() {
     return HttpClient.instance;
   }
 }
