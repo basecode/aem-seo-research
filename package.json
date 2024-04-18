@@ -30,7 +30,7 @@
   "homepage": "https://github.com/basecode/aem-seo-research#readme",
   "dependencies": {
     "@adobe/spacecat-shared-utils": "1.14.2",
-    "spacecat-audit-worker": "https://gitpkg.now.sh/adobe/spacecat-audit-worker?export-helper-function",
+    "spacecat-audit-worker": "https://gitpkg.now.sh/adobe/spacecat-audit-worker?main",
     "axios": "1.6.7",
     "cheerio": "1.0.0-rc.12",
     "dotenv": "16.4.1",
