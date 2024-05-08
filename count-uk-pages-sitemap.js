@@ -106,8 +106,8 @@ async function parseXMLSitemap(sitemapContent, siteUrl) {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(sitemapContent, 'text/xml');
     const urlElements = xmlDoc.getElementsByTagName('url');
-    // for (let i = 0; i < urlElements.length; i++)
-    for (let i = 0; i < 10; i++){
+    //for (let i = 0; i < 10; i++)
+    for (let i = 0; i < urlElements.length; i++){
       const urlElement = urlElements[i];
       const loc = urlElement.getElementsByTagName('loc')[0].textContent;
       await testUrlIfIsInUK(loc, siteUrl,i);
