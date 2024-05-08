@@ -74,8 +74,10 @@ async function testUrlIfIsUS(loc) {
     url.pathname = `/uk${url.pathname}`;
     const response = await httpClient.fetch(url.pathname, 'HEAD');
     if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
+        console.log(`No translation found at ${sitemapUrl}`);
         report(siteUrl, `No translation found at ${sitemapUrl}`);
     } else {
+        console.log(`Translation found for: ${sitemapUrl}`);
         report(siteUrl, `Translation found for: ${sitemapUrl}`);
      }
    }
@@ -85,8 +87,10 @@ function parseXMLSitemap(sitemapContent) {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(sitemapContent, 'text/xml');
     const urlElements = xmlDoc.getElementsByTagName('url');
-for (let i = 0; i < urlElements.length; i++) {
+    //for (let i = 0; i < urlElements.length; i++) 
+for (let i = 0; i < 10; i++) {
     const urlElement = urlElements[i];
+    console.log(urlElement);
     const loc = urlElement.getElementsByTagName('loc')[0].textContent;
     testUrlIfIsUS(loc);
     }
@@ -102,6 +106,7 @@ async function fetchSitemapUrls(siteUrl) {
         if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
             report(siteUrl, `Sitemap not found at ${sitemapUrl}`);
         } else {
+            console.log(`Found Sitemap in default location: ${sitemapUrl}`);
             report(siteUrl, `Found Sitemap in default location: ${sitemapUrl}`);
             let xml;
                 xml = await response.text();
@@ -126,10 +131,10 @@ async function fetchSitemapUrls(siteUrl) {
     for (const siteUrl of siteUrls) {
         if (!reportExists(siteUrl)) {
             const startTime = process.hrtime();
-            console.log(`Processing: ${siteUrl}`);
+            console.log(`Processing: ${siteUrl}+blogs`);
             reportSite(siteUrl);
             // eslint-disable-next-line no-await-in-loop
-             await fetchSitemapUrls(siteUrl);
+             await fetchSitemapUrls(siteUrl+'blogs');
             report(siteUrl, `ExecutionTime in Seconds ${hrtimeToSeconds(process.hrtime(startTime))}`);
         } else {
             console.log(`Skip: ${siteUrl}`);
