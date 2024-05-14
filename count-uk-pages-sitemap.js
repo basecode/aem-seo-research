@@ -17,13 +17,15 @@ import path from 'path';
 // import { makeSpaceCatApiCall } from './lib.js';
 import { DOMParser } from 'xmldom';
 import { json2csv } from 'json-2-csv';
+import { parse } from 'csv-parse';
 import HttpClient from './assessment/libs/fetch-client.js';
-//import Assessment from './libs/assessment-lib.js';
+// import Assessment from './libs/assessment-lib.js';
 
 let found = 0;
 let notFound = 0;
-let resultJson = [];
+const resultJson = [];
 const httpClient = HttpClient.getInstance();
+const csvFilePath = './top200url.csv';
 // const ISO6391 = require('iso-639-1');
 
 // const visitedSitemaps = [];
@@ -45,11 +47,19 @@ const hrtimeToSeconds = (hrtime) => {
 
 const sanitizeFilename = (url) => url.replace(/[^a-zA-Z0-9]/g, '_');
 
-const reportExists = (site) => fs.existsSync(path.join(REPORTS_DIR, `${sanitizeFilename(site)}.txt`));
-
-const report = (site, message) => {
+/* const async report = (site, message) => {
   if (EXECUTE_SINGLE_SITE_REPORT) console.log(message);
   fs.appendFileSync(path.join(REPORTS_DIR, `${sanitizeFilename(site)}.txt`), `${message}\n`);
+};  */
+
+const report = async (site, message) => {
+  if (EXECUTE_SINGLE_SITE_REPORT) console.log(message);
+  try {
+    await fs.promises.appendFile(path.join(REPORTS_DIR, `${sanitizeFilename(site)}.txt`), `${message}\n`);
+  } catch (error) {
+    console.error('Error appending to file:', error);
+    // Handle the error as needed
+  }
 };
 
 const reportSite = (site) => {
@@ -67,37 +77,41 @@ const getSpacecatSitesUrls = async () => {
 };
 */
 
-async function testUrlIfIsInUK(loc, siteUrl,i) {
+async function testUrlIfIsInUK(loc, siteUrl, i) {
   const url = new URL(loc);
-  //report(siteUrl, `processing ${url} `);
-
-  // Extract the existing language code (if any)
-  // Assumes language code is the first segment
   const existingLanguageCode = url.pathname.split('/')[1];
-  // Check if the existing language code is valid and not already an internationalisation iso code
+
   if (existingLanguageCode && !ISO6391.validate(existingLanguageCode)) {
-    // Add "/uk/" to the URL if no language code exists
     url.pathname = `/uk${url.pathname}`;
     const newUrl = `https://${url.hostname}${url.pathname}`;
-    report(siteUrl, `checking response from ${newUrl}`); 
-    
-     const response = await httpClient.fetch(newUrl, 'HEAD');
-        if (!response.ok || response.status === '404' || response.headers.get('content-type').includes('text/html')) {
-            console.log(`No translation found at ${newUrl}`);
-            report(siteUrl, `No translation found at ${newUrl}`);
-            const isTranslated=false;
-            const urlTranslated={newUrl,isTranslated};
-            resultJson.push(urlTranslated);           
-            notFound++;
-        } else {
-            console.log(`Translation found for: ${newUrl}`);
-            report(siteUrl, `Translation found for: ${newUrl}`);
-            resultJson[`url${i + 1}`] = siteUrl;
-            const isTranslated=true;
-            const urlNotTranslated={newUrl,isTranslated};
-            resultJson.push(urlTranslated); 
-            found++;
-        } 
+    console.log(`checking response from ${newUrl}`);
+    await report(siteUrl, `checking response from ${newUrl}`);
+
+    try {
+      const response = await httpClient.fetch(newUrl, 'HEAD');
+      if (!response.ok || response.status === '404') {
+        //console.log(response);
+        console.log(`No translation found at ${newUrl}`);
+        await report(siteUrl, `No translation found at ${newUrl}`);
+        resultJson[`url${i + 1}`] = siteUrl;
+        const isTranslated = false;
+        const urlTranslated = { newUrl, isTranslated };
+        resultJson.push(urlTranslated);
+        notFound++;
+      } else {
+        //console.log(response);
+        console.log(`Translation found for: ${newUrl}`);
+        await report(siteUrl, `Translation found for: ${newUrl}`);
+        resultJson[`url${i + 1}`] = siteUrl;
+        const isTranslated = true;
+        const urlNotTranslated = { newUrl, isTranslated };
+        resultJson.push(urlNotTranslated);
+        found++;
+      }
+    } catch (error) {
+      console.error(`Error fetching ${newUrl}:`, error);
+      await report(siteUrl, `Error fetching ${newUrl}: ${error}`);
+    }
   }
 }
 
@@ -106,15 +120,59 @@ async function parseXMLSitemap(sitemapContent, siteUrl) {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(sitemapContent, 'text/xml');
     const urlElements = xmlDoc.getElementsByTagName('url');
-    //for (let i = 0; i < 10; i++)
-    for (let i = 0; i < urlElements.length; i++){
+    // for (let i = 0; i < 10; i++)
+    for (let i = 0; i < urlElements.length; i++) {
       const urlElement = urlElements[i];
       const loc = urlElement.getElementsByTagName('loc')[0].textContent;
-      await testUrlIfIsInUK(loc, siteUrl,i);
+      await testUrlIfIsInUK(loc, siteUrl, i);
     }
   } catch (error) { console.log(error); }
 }
 
+async function fetchUrlsFromfile(file, siteUrl, startTime, totalStartTime) {
+  return new Promise((resolve, reject) => {
+    try {
+      let numberOfURLs = 0;
+      const parser = parse({ delimiter: ';' });
+
+      parser.on('readable', async () => {
+        let record;
+        while ((record = parser.read())) {
+          const loc = record.toString();
+          console.log(loc);
+          try {
+            await testUrlIfIsInUK(loc, siteUrl, numberOfURLs);
+          } catch (error) {
+            console.error('Error processing URL:', error);
+          }
+          numberOfURLs++;
+        }
+      });
+
+      parser.on('error', (error) => {
+        console.error('Error reading CSV:', error);
+        reject(error);
+      });
+
+      parser.on('end', () => {
+        console.log('CSV parsing complete.');
+        resolve(); // Resolve the promise when parsing is complete
+      });
+
+      fs.createReadStream(csvFilePath)
+        .pipe(parser)
+        .on('error', (error) => {
+          console.error('Error reading CSV file:', error);
+          reject(error);
+        });
+    } catch (error) {
+      console.error('Error parsing CSV file:', error);
+      reject(error);
+    }
+  });
+}
+
+/*
 async function fetchUrlsFromSitemap(siteUrl) {
   const sitemapUrl = new URL('sitemap.xml', siteUrl).toString(); // Default sitemap location
   try {
@@ -132,7 +190,7 @@ async function fetchUrlsFromSitemap(siteUrl) {
     console.log(error);
     report(siteUrl, `Error fetching default sitemap ${siteUrl}: ${error}`);
   }
-}
+} */
 
 // Example usage
 (async () => {
@@ -140,20 +198,26 @@ async function fetchUrlsFromSitemap(siteUrl) {
   const siteUrl = 'https://www.servicenow.com/blogs/';
   const startTime = process.hrtime();
 
+  try {
+    console.log(`Processing: ${siteUrl}`);
+    reportSite(siteUrl);
+    await fetchUrlsFromfile(csvFilePath, siteUrl, startTime, totalStartTime); // Asynchronous operation
+    // Logging statements moved inside fetchUrlsFromfile function
+    console.log('CSV parsing complete.');
+    console.log(`We had ${notFound} pages without translation and ${found} pages with translation`);
 
+    const csv = json2csv(resultJson);
+    const summaryFilePath = path.join('./reports/', `summary-${sanitizeFilename(siteUrl)}-${new Date().toISOString()}.csv`);
+    fs.writeFileSync(summaryFilePath, csv);
 
-  //const assessment = new Assessment(options, title);
+    const executionTime = hrtimeToSeconds(process.hrtime(startTime));
+    console.log(`ExecutionTime in Seconds ${executionTime}`);
+    report(siteUrl, `ExecutionTime in Seconds ${executionTime}`);
 
-  console.log(`Processing: ${siteUrl}`);
-  reportSite(siteUrl);
-  await fetchUrlsFromSitemap(siteUrl);
-  report(siteUrl, `ExecutionTime in Seconds ${hrtimeToSeconds(process.hrtime(startTime))}`);
-  console.log(`we had ${notFound} pages without translation and ${found} pages with translation`);
-  report(siteUrl, `we had ${notFound} pages without translation and ${found} pages with translation`);
-
-  const csv = json2csv(resultJson);
-  const summaryFilePath = path.join("./reports/", `summary-${sanitizeFilename(siteUrl)}-${new Date().toISOString()}.csv`);
-  fs.writeFileSync(summaryFilePath, csv);
-
-  console.log(`Total time in Minutes: ${hrtimeToSeconds(process.hrtime(totalStartTime)) / 60}`);
+    console.log(`Total time in Minutes: ${hrtimeToSeconds(process.hrtime(totalStartTime)) / 60}`);
+    // Remaining logging statements removed from here
+  } catch (error) {
+    console.error('An error occurred:', error);
+    // Handle the error as needed (e.g., log it, report it, etc.)
+  }
 })();
