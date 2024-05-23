@@ -1,0 +1,24 @@
+let
+    GetSiteEvents = (siteId as text) as table =>
+let
+    apiKey = Text.From(getParameters("Parameters", "apiKey")),
+    url = "https://spacecat.experiencecloud.live/api/v1/sites/" & siteId & "/key-events",
+    headers = [#"x-api-key" = apiKey],
+    Source = try Json.Document(Web.Contents(url, [Headers=headers])) otherwise null,
+    Result = if Source = null or List.IsEmpty(Source) then
+        #table(type table [week=nullable date, id=nullable text, name=nullable text, type=nullable text, time=nullable datetime], {})
+    else
+        let
+            #"Converted to Table" = Table.FromList(Source, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+            #"Expanded Columns" = Table.ExpandRecordColumn(#"Converted to Table", "Column1", {"id", "name", "type", "time"}, {"id", "name", "type", "time"}),
+            #"Changed column type" = Table.TransformColumnTypes(#"Expanded Columns", {{"time", type datetime}}),
+            #"Added custom" = Table.TransformColumnTypes(Table.AddColumn(#"Changed column type", "week", each Date.StartOfWeek([time], Day.Monday)), {{"week", type date}}),
+            #"Reordered columns" = Table.ReorderColumns(#"Added custom", {"week", "id", "name", "type", "time"}),
+            #"Grouped Rows" = Table.Group(#"Reordered columns", {"week"}, {{"name", each Text.Combine([name], ", "), type text}, {"id", each [id]{0}, type text}, {"type", each [type]{0}, type text}, {"time", each [time]{0}, type datetime}}),
+            #"Sorted rows" = Table.Sort(#"Grouped Rows", {{"time", Order.Ascending}})
+        in
+            #"Sorted rows"
+in
+    Result
+in
+    GetSiteEvents

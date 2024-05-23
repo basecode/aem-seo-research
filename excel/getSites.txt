@@ -1,0 +1,9 @@
+let
+  Parameter=() =>
+let
+  Source = Excel.CurrentWorkbook(){[Name="Sites"]}[Content],
+  value = Source[Site]
+in
+  value
+in
+  Parameter

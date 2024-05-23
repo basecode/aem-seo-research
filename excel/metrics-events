@@ -1,0 +1,6 @@
+let
+  Source = Table.NestedJoin(metrics, {"siteId", "time"}, #"key-events", {"siteId", "week"}, "key-events", JoinKind.LeftOuter),
+  #"Expanded key-events" = Table.ExpandTableColumn(Source, "key-events", {"name", "type"}, {"eventName", "eventType"}),
+  #"Added Custom" = Table.AddColumn(#"Expanded key-events", "eventValue", each if [eventName] = null then NA() else [value] + ([value]/10))
+in
+  #"Added Custom"

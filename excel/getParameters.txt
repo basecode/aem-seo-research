@@ -1,0 +1,9 @@
+let
+  Parameter=(TableName,ParameterLabel) =>
+let
+  Source = Excel.CurrentWorkbook(){[Name=TableName]}[Content],
+  value = Source{[Parameter=ParameterLabel]}[Value]
+in
+  value
+in
+  Parameter

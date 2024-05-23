@@ -1,0 +1,23 @@
+let
+  GetSiteMetrics = (siteId as text) as table =>
+let
+  apiKey = Text.From(getParameters("Parameters", "apiKey")),
+  metric = Text.From(getParameters("Parameters", "metric")),
+  source = Text.From(getParameters("Parameters", "source")),
+  url = "https://spacecat.experiencecloud.live/api/v1/sites/" & siteId & "/metrics/" & metric & "/" & source,
+  headers = [#"x-api-key" = apiKey],
+  Source = try Json.Document(Web.Contents(url, [Headers=headers])) otherwise null,
+  Result = if Source = null or List.IsEmpty(Source) then
+        #table(type table [siteId=nullable text, source=nullable text, time=nullable datetime, name=nullable text, value=nullable Int64.Type], {})
+    else
+        let
+          #"Converted to Table" = Table.FromList(Source, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+          #"Expanded Columns" = Table.ExpandRecordColumn(#"Converted to Table", "Column1", {"siteId", "source", "time", "name", "value"}, {"siteId", "source", "time", "name", "value"}),
+          #"Changed column type" = Table.TransformColumnTypes(#"Expanded Columns", {{"time", type datetimezone}, {"value", Int64.Type}}),
+          #"Sorted rows" = Table.Sort(#"Changed column type", {{"time", Order.Ascending}})
+        in
+          #"Sorted rows"
+in
+  Result
+in
+  GetSiteMetrics

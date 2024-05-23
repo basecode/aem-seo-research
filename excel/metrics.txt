@@ -1,0 +1,12 @@
+let
+    apiKey = Text.From(getParameters("Parameters", "apiKey")),
+    siteIds = getSites(),
+    #"Converted to Table" = Table.FromList(siteIds, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+    #"Renamed Columns" = Table.RenameColumns(#"Converted to Table",{{"Column1", "siteId"}}),
+    #"Added Custom" = Table.AddColumn(#"Renamed Columns", "Data", each getSiteMetrics([siteId])),
+    #"Expanded Data" = Table.ExpandTableColumn(#"Added Custom", "Data", {"source", "time", "name", "value"}, {"source", "time", "name", "value"}),
+  #"Changed column type" = Table.TransformColumnTypes(#"Expanded Data", {{"time", type date}}),
+  #"Reordered columns" = Table.ReorderColumns(#"Changed column type", {"siteId", "source", "name", "time", "value"}),
+  #"Sorted rows" = Table.Sort(#"Reordered columns", {{"siteId", Order.Ascending}, {"time", Order.Ascending}})
+in
+    #"Sorted rows"
