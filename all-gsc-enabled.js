@@ -40,7 +40,7 @@ async function run() {
   try {
     const sites = await makeApiCall('GET', '/sites');
     const enabled = sites.filter((site) => site.config.imports?.filter((item) => item.sources?.includes('google')).length > 0).map((site) => site.baseURL);
-    console.log(enabled);
+    console.log(enabled.join('\r\n'));
   } catch (error) {
     console.error('Error:', error);
   }
