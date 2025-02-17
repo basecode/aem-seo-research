@@ -15,7 +15,7 @@ import fetch from 'node-fetch';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import sitesData from './sites-data.js';
+import https from 'https';
 
 const DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'pss-urls');
 
@@ -24,26 +24,62 @@ if (!fs.existsSync(DIR)) {
   fs.mkdirSync(DIR);
 }
 
+// read csv file and store the data in sitesData
+// eslint-disable-next-line no-unused-vars
+const readCSV = (file) => {
+  const data = fs.readFileSync(file, 'utf-8');
+  const lines = data.split('\n');
+  const obj = [];
+  lines.forEach((line) => {
+    const [customerName, country, website, finalUrl, status, batch, deliveryType, hasRUM, imsOrg] = line.split('\t');
+    obj.push({
+      customerName,
+      country,
+      website,
+      finalUrl,
+      status,
+      batch,
+      deliveryType,
+      hasRUM,
+      imsOrg,
+    });
+  });
+  return obj;
+};
+
+const sitesData = readCSV(path.join(path.dirname(fileURLToPath(import.meta.url)), 'sites-data-excel-used-for-input-and-output.csv'));
+
 dotenv.config();
 
 (async function main() {
   const sanitizeFilename = (url) => url.replace(/[^a-zA-Z0-9]/g, '_');
-  const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3';
+  const userAgents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.3 Safari/605.1.15',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36',
+  ];
 
   const fetchWithTimeout = (url, options, timeout = 10000) => Promise.race([
     fetch(url, options),
     new Promise((_, reject) => { setTimeout(() => reject(new Error('Timeout')), timeout); }),
   ]);
 
+  const agent = new https.Agent({
+    rejectUnauthorized: false, // Ignore SSL certificate errors
+  });
+
   await Promise.all(sitesData.map(async (site) => {
     // Ensure page is defined
     let page;
     let isFinalUrl = false;
-    if (!('finalUrl' in site) || !site.finalUrl) {
-      page = site.website;
-    } else {
+    if (site.finalUrl) {
       isFinalUrl = true;
       page = site.finalUrl;
+    } else if (site.website) {
+      page = site.website;
+    } else {
+      return;
     }
 
     // read the cached file if it exists
@@ -66,6 +102,7 @@ dotenv.config();
         if (isError) sitesData[siteIndex].status = text.includes('ERROR - ') ? text.replace('ERROR - ', '') : (text.includes('Incapsula') ? 'Incapsula blocker' : '');
         sitesData[siteIndex].hasRUM = hasRUM;
         sitesData[siteIndex].deliveryType = deliveryType;
+        sitesData[siteIndex].batch = (hasRUM) ? 'Oppties pending' : 'Won\'t';
       }
 
       return;
@@ -76,11 +113,17 @@ dotenv.config();
       if (!page.includes('https')) return;
       const response = await fetchWithTimeout(page, {
         headers: {
-          'User-Agent': userAgent,
+          'User-Agent': userAgents[Math.floor(Math.random() * userAgents.length)],
           Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.9',
           Connection: 'keep-alive',
+          Referer: 'https://www.google.com/',
+          DNT: '1',
+          'Upgrade-Insecure-Requests': '1',
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
         },
+        agent,
       });
       if (!response.ok) {
         fs.writeFileSync(path.join(DIR, `${sanitizeFilename(page)}.txt`), `ERROR - ${response.status} ${response.statusText}`);
@@ -93,11 +136,12 @@ dotenv.config();
     }
   }));
 
+  // eslint-disable-next-line max-len
+  // 'Customer Name\tCountry\tWebsite\tFinal URL\tCrawl Status\tOnboarded\tDelivery Type\tHas RUM\tIMS Org\t'
   // Write sitesData to sites-data-excel-output.txt. Format shall be CSV
-  // Headers: 'Customer Name;Country;Website;Final URL;Status;Batch;Delivery Type;Has RUM;IMS Org;
   let output = '';
   sitesData.forEach((site) => {
-    output += `${site.customerName};${site.country};${site.website};${site.finalUrl};${site.status};${site.batch};${site.deliveryType};${site.hasRUM};${site.imsOrg}\n`;
+    output += `${site.customerName}\t${site.country}\t${site.website}\t${site.finalUrl}\t${site.status}\t${site.batch}\t${site.deliveryType}\t${site.hasRUM}\t${site.imsOrg}\n`;
   });
-  fs.writeFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'sites-data-excel-output.csv'), output);
+  fs.writeFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'sites-data-excel-used-for-input-and-output.csv'), output);
 }());

@@ -1,6 +1,7 @@
 .env
 node_modules
 reports
+pss-urls
 .DS_Store
 /assessment/output
 .idea/
