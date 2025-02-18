@@ -1,7 +1,8 @@
 .env
 node_modules
 reports
-pss-urls
+/onboarding/domainlist.csv
+/onboarding/input.csv
 .DS_Store
 /assessment/output
 .idea/
